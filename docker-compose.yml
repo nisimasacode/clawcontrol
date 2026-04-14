@@ -112,8 +112,6 @@ services:
       OB1_DB_URL: "postgres://${POSTGRES_USER:-ob1}:${POSTGRES_PASSWORD}@ob1-db:5432/${POSTGRES_DB:-openbrain}"
       OB1_REST_URL: "http://ob1-rest:3000"
       OB1_SCHEMA: orchestrator
-      # Browser (CDP endpoint of its dedicated Chromium)
-      BROWSER_CDP_URL: "http://chromium-orchestrator:9223"
     volumes:
       # Own config + workspace
       - ${DATA_ROOT}/openclaw-orchestrator/.openclaw:/home/node/.openclaw
@@ -145,21 +143,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
-
-  chromium-orchestrator:
-    <<: *chromium-common
-    container_name: chromium-orchestrator
-    environment:
-      TZ: ${TZ:-Europe/Berlin}
-      CUSTOM_HTTPS_PORT: 3001
-      CHROME_CLI: "--remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 --remote-allow-origins=*"
-      DISPLAY: ":1"
-      START_DOCKER: "true"
-    volumes:
-      - ${DATA_ROOT}/chromium-orchestrator:/config:rw
-    ports:
-      - "${ORCHESTRATOR_CHROMIUM_UI_PORT:-3001}:3001"
-      - "${ORCHESTRATOR_CHROMIUM_CDP_PORT:-9223}:9223"
 
   # ═══════════════════════════════════════════════════════════════════════════
   #  AGENT 1 — Worker agent
