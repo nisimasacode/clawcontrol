@@ -1,0 +1,289 @@
+# =============================================================================
+# agent-orc  —  Multi-Agent OpenClaw Stack
+#
+# Topology:
+#   Shared:       ob1-db (PostgreSQL+pgvector), ob1-rest (PostgREST)
+#   Orchestrator: openclaw-orchestrator + chromium-orchestrator
+#   Worker 1:     openclaw-agent1       + chromium-agent1
+#   Worker 2:     openclaw-agent2       + chromium-agent2
+#
+# Usage:
+#   cp .env.example .env   # fill in secrets
+#   docker compose up -d
+# =============================================================================
+
+# ─────────────────────────────────────────────────────────────────────────────
+# YAML anchors — shared config blocks reused across services
+# ─────────────────────────────────────────────────────────────────────────────
+x-openclaw-common: &openclaw-common
+  image: ghcr.io/openclaw/openclaw:latest
+  init: true
+  restart: unless-stopped
+  networks:
+    - agent-net
+
+x-chromium-common: &chromium-common
+  image: lscr.io/linuxserver/chromium:latest
+  restart: unless-stopped
+  shm_size: 2gb
+  networks:
+    - agent-net
+  logging:
+    driver: json-file
+    options:
+      max-size: "50m"
+      max-file: "1"
+  entrypoint: /bin/bash
+  command:
+    - "-c"
+    - "apt-get update && apt-get install -y socat && socat TCP-LISTEN:9223,fork,reuseaddr,bind=0.0.0.0 TCP:127.0.0.1:9222 & exec /init"
+
+# =============================================================================
+#  SERVICES
+# =============================================================================
+services:
+
+  # ───────────────────────────────────────────────────────────────────────────
+  #  OB1 — Shared Database (PostgreSQL 16 + pgvector)
+  # ───────────────────────────────────────────────────────────────────────────
+  ob1-db:
+    image: pgvector/pgvector:pg16
+    container_name: ob1-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ob1}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-openbrain}
+    volumes:
+      - ${DATA_ROOT}/ob1/pgdata:/var/lib/postgresql/data
+      - ./ob1/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    ports:
+      - "${OB1_DB_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ob1} -d ${POSTGRES_DB:-openbrain}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - agent-net
+
+  # ───────────────────────────────────────────────────────────────────────────
+  #  OB1 — PostgREST (REST API for the OB1 database)
+  # ───────────────────────────────────────────────────────────────────────────
+  ob1-rest:
+    image: postgrest/postgrest:v14.8
+    container_name: ob1-rest
+    restart: unless-stopped
+    depends_on:
+      ob1-db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: "postgres://${POSTGRES_USER:-ob1}:${POSTGRES_PASSWORD}@ob1-db:5432/${POSTGRES_DB:-openbrain}"
+      PGRST_DB_SCHEMAS: "public,orchestrator,agent1,agent2"
+      PGRST_DB_ANON_ROLE: "${POSTGRES_USER:-ob1}"
+      PGRST_DB_MAX_ROWS: 1000
+      PGRST_JWT_SECRET: "${PGRST_JWT_SECRET:-}"
+      PGRST_DB_EXTRA_SEARCH_PATH: "public"
+    ports:
+      - "${OB1_REST_PORT:-3100}:3000"
+    networks:
+      - agent-net
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  #  ORCHESTRATOR — The agent that manages the fleet
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  openclaw-orchestrator:
+    <<: *openclaw-common
+    container_name: openclaw-orchestrator
+    depends_on:
+      ob1-db:
+        condition: service_healthy
+    environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      TZ: ${TZ:-Europe/Berlin}
+      OPENCLAW_GATEWAY_TOKEN: ${ORCHESTRATOR_GATEWAY_TOKEN:-}
+      # Model provider keys
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      # OB1 connection info (available inside the container)
+      OB1_DB_URL: "postgres://${POSTGRES_USER:-ob1}:${POSTGRES_PASSWORD}@ob1-db:5432/${POSTGRES_DB:-openbrain}"
+      OB1_REST_URL: "http://ob1-rest:3000"
+      OB1_SCHEMA: orchestrator
+      # Browser (CDP endpoint of its dedicated Chromium)
+      BROWSER_CDP_URL: "http://chromium-orchestrator:9223"
+    volumes:
+      # Own config + workspace
+      - ${DATA_ROOT}/openclaw-orchestrator/.openclaw:/home/node/.openclaw
+      - ${DATA_ROOT}/openclaw-orchestrator/workspace:/home/node/.openclaw/workspace
+      # ── Orchestrator-only mounts ──
+      # Read/write access to every other agent's config
+      - ${DATA_ROOT}/openclaw-agent1/.openclaw:/mounted-agents/agent1/.openclaw
+      - ${DATA_ROOT}/openclaw-agent2/.openclaw:/mounted-agents/agent2/.openclaw
+      # Access to the compose stack (so the orchestrator can edit it)
+      - .:/compose-files
+      # Docker socket for running compose commands
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "${ORCHESTRATOR_GATEWAY_PORT:-18789}:18789"
+      - "${ORCHESTRATOR_BRIDGE_PORT:-18790}:18790"
+    command:
+      [
+        "node", "dist/index.js", "gateway",
+        "--bind", "lan",
+        "--port", "18789",
+      ]
+    healthcheck:
+      test:
+        [
+          "CMD", "node", "-e",
+          "fetch('http://127.0.0.1:18789/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  chromium-orchestrator:
+    <<: *chromium-common
+    container_name: chromium-orchestrator
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      CUSTOM_HTTPS_PORT: 3001
+      CHROME_CLI: "--remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 --remote-allow-origins=*"
+      DISPLAY: ":1"
+      START_DOCKER: "true"
+    volumes:
+      - ${DATA_ROOT}/chromium-orchestrator:/config:rw
+    ports:
+      - "${ORCHESTRATOR_CHROMIUM_UI_PORT:-3001}:3001"
+      - "${ORCHESTRATOR_CHROMIUM_CDP_PORT:-9223}:9223"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  #  AGENT 1 — Worker agent
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  openclaw-agent1:
+    <<: *openclaw-common
+    container_name: openclaw-agent1
+    depends_on:
+      ob1-db:
+        condition: service_healthy
+    environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      TZ: ${TZ:-Europe/Berlin}
+      OPENCLAW_GATEWAY_TOKEN: ${AGENT1_GATEWAY_TOKEN:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OB1_DB_URL: "postgres://${POSTGRES_USER:-ob1}:${POSTGRES_PASSWORD}@ob1-db:5432/${POSTGRES_DB:-openbrain}"
+      OB1_REST_URL: "http://ob1-rest:3000"
+      OB1_SCHEMA: agent1
+      BROWSER_CDP_URL: "http://chromium-agent1:9223"
+    volumes:
+      - ${DATA_ROOT}/openclaw-agent1/.openclaw:/home/node/.openclaw
+      - ${DATA_ROOT}/openclaw-agent1/workspace:/home/node/.openclaw/workspace
+    ports:
+      - "${AGENT1_GATEWAY_PORT:-18791}:18789"
+      - "${AGENT1_BRIDGE_PORT:-18792}:18790"
+    command:
+      [
+        "node", "dist/index.js", "gateway",
+        "--bind", "lan",
+        "--port", "18789",
+      ]
+    healthcheck:
+      test:
+        [
+          "CMD", "node", "-e",
+          "fetch('http://127.0.0.1:18789/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  chromium-agent1:
+    <<: *chromium-common
+    container_name: chromium-agent1
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      CUSTOM_HTTPS_PORT: 3001
+      CHROME_CLI: "--remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 --remote-allow-origins=*"
+      DISPLAY: ":1"
+      START_DOCKER: "true"
+    volumes:
+      - ${DATA_ROOT}/chromium-agent1:/config:rw
+    ports:
+      - "${AGENT1_CHROMIUM_UI_PORT:-3002}:3001"
+      - "${AGENT1_CHROMIUM_CDP_PORT:-9224}:9223"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  #  AGENT 2 — Worker agent
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  openclaw-agent2:
+    <<: *openclaw-common
+    container_name: openclaw-agent2
+    depends_on:
+      ob1-db:
+        condition: service_healthy
+    environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      TZ: ${TZ:-Europe/Berlin}
+      OPENCLAW_GATEWAY_TOKEN: ${AGENT2_GATEWAY_TOKEN:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OB1_DB_URL: "postgres://${POSTGRES_USER:-ob1}:${POSTGRES_PASSWORD}@ob1-db:5432/${POSTGRES_DB:-openbrain}"
+      OB1_REST_URL: "http://ob1-rest:3000"
+      OB1_SCHEMA: agent2
+      BROWSER_CDP_URL: "http://chromium-agent2:9223"
+    volumes:
+      - ${DATA_ROOT}/openclaw-agent2/.openclaw:/home/node/.openclaw
+      - ${DATA_ROOT}/openclaw-agent2/workspace:/home/node/.openclaw/workspace
+    ports:
+      - "${AGENT2_GATEWAY_PORT:-18793}:18789"
+      - "${AGENT2_BRIDGE_PORT:-18794}:18790"
+    command:
+      [
+        "node", "dist/index.js", "gateway",
+        "--bind", "lan",
+        "--port", "18789",
+      ]
+    healthcheck:
+      test:
+        [
+          "CMD", "node", "-e",
+          "fetch('http://127.0.0.1:18789/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  chromium-agent2:
+    <<: *chromium-common
+    container_name: chromium-agent2
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      CUSTOM_HTTPS_PORT: 3001
+      CHROME_CLI: "--remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 --remote-allow-origins=*"
+      DISPLAY: ":1"
+      START_DOCKER: "true"
+    volumes:
+      - ${DATA_ROOT}/chromium-agent2:/config:rw
+    ports:
+      - "${AGENT2_CHROMIUM_UI_PORT:-3003}:3001"
+      - "${AGENT2_CHROMIUM_CDP_PORT:-9225}:9223"
+
+# =============================================================================
+#  NETWORKS
+# =============================================================================
+networks:
+  agent-net:
+    driver: bridge
