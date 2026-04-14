@@ -116,6 +116,8 @@ services:
       # Own config + workspace
       - ${DATA_ROOT}/openclaw-orchestrator/.openclaw:/home/node/.openclaw
       - ${DATA_ROOT}/openclaw-orchestrator/workspace:/home/node/.openclaw/workspace
+      # Seed config (copied on first start if no config exists)
+      - ./configs/orchestrator/openclaw.json:/seed/openclaw.json:ro
       # ── Orchestrator-only mounts ──
       # Read/write access to every other agent's config
       - ${DATA_ROOT}/openclaw-agent1/.openclaw:/mounted-agents/agent1/.openclaw
@@ -128,11 +130,11 @@ services:
       - "${ORCHESTRATOR_GATEWAY_PORT:-18789}:18789"
       - "${ORCHESTRATOR_BRIDGE_PORT:-18790}:18790"
     command:
-      [
-        "node", "dist/index.js", "gateway",
-        "--bind", "lan",
-        "--port", "18789",
-      ]
+      - "/bin/sh"
+      - "-c"
+      - |
+        test -f /home/node/.openclaw/openclaw.json || cp /seed/openclaw.json /home/node/.openclaw/openclaw.json
+        exec node dist/index.js gateway --bind lan --port 18789
     healthcheck:
       test:
         [
@@ -169,15 +171,16 @@ services:
     volumes:
       - ${DATA_ROOT}/openclaw-agent1/.openclaw:/home/node/.openclaw
       - ${DATA_ROOT}/openclaw-agent1/workspace:/home/node/.openclaw/workspace
+      - ./configs/agent1/openclaw.json:/seed/openclaw.json:ro
     ports:
       - "${AGENT1_GATEWAY_PORT:-18791}:18789"
       - "${AGENT1_BRIDGE_PORT:-18792}:18790"
     command:
-      [
-        "node", "dist/index.js", "gateway",
-        "--bind", "lan",
-        "--port", "18789",
-      ]
+      - "/bin/sh"
+      - "-c"
+      - |
+        test -f /home/node/.openclaw/openclaw.json || cp /seed/openclaw.json /home/node/.openclaw/openclaw.json
+        exec node dist/index.js gateway --bind lan --port 18789
     healthcheck:
       test:
         [
@@ -228,15 +231,16 @@ services:
     volumes:
       - ${DATA_ROOT}/openclaw-agent2/.openclaw:/home/node/.openclaw
       - ${DATA_ROOT}/openclaw-agent2/workspace:/home/node/.openclaw/workspace
+      - ./configs/agent2/openclaw.json:/seed/openclaw.json:ro
     ports:
       - "${AGENT2_GATEWAY_PORT:-18793}:18789"
       - "${AGENT2_BRIDGE_PORT:-18794}:18790"
     command:
-      [
-        "node", "dist/index.js", "gateway",
-        "--bind", "lan",
-        "--port", "18789",
-      ]
+      - "/bin/sh"
+      - "-c"
+      - |
+        test -f /home/node/.openclaw/openclaw.json || cp /seed/openclaw.json /home/node/.openclaw/openclaw.json
+        exec node dist/index.js gateway --bind lan --port 18789
     healthcheck:
       test:
         [

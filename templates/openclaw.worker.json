@@ -1,0 +1,22 @@
+{
+  "gateway": {
+    "mode": "local",
+    "bind": "lan"
+  },
+  "browser": {
+    "enabled": true,
+    "headless": false,
+    "noSandbox": true,
+    "attachOnly": true,
+    "defaultProfile": "remote",
+    "ssrfPolicy": {
+      "dangerouslyAllowPrivateNetwork": true
+    },
+    "profiles": {
+      "remote": {
+        "cdpUrl": "http://chromium-{{AGENT_NAME}}:9223",
+        "color": "#FF4500"
+      }
+    }
+  }
+}
