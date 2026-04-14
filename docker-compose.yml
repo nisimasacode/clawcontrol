@@ -202,7 +202,6 @@ services:
       - ${DATA_ROOT}/chromium-agent1:/config:rw
     ports:
       - "${AGENT1_CHROMIUM_UI_PORT:-3002}:3001"
-      - "${AGENT1_CHROMIUM_CDP_PORT:-9224}:9223"
 
   # ═══════════════════════════════════════════════════════════════════════════
   #  AGENT 2 — Worker agent
@@ -262,7 +261,6 @@ services:
       - ${DATA_ROOT}/chromium-agent2:/config:rw
     ports:
       - "${AGENT2_CHROMIUM_UI_PORT:-3003}:3001"
-      - "${AGENT2_CHROMIUM_CDP_PORT:-9225}:9223"
 
 # =============================================================================
 #  NETWORKS
