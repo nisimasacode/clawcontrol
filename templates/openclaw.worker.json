@@ -3,6 +3,12 @@
     "mode": "local",
     "bind": "lan"
   },
+  "mcpServers": {
+    "ob1": {
+      "url": "http://ob1-mcp:8000?schema={{AGENT_NAME}}",
+      "transport": "http"
+    }
+  },
   "browser": {
     "enabled": true,
     "headless": false,

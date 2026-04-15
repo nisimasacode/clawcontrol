@@ -89,6 +89,32 @@ services:
     networks:
       - agent-net
 
+  ob1-mcp:
+    build:
+      context: ./ob1/mcp-server
+    container_name: ob1-mcp
+    restart: unless-stopped
+    depends_on:
+      ob1-db:
+        condition: service_healthy
+    environment:
+      DB_HOST: ob1-db
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-openbrain}
+      DB_USER: ${POSTGRES_USER:-ob1}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      OB1_SCHEMA: public
+      EMBEDDING_API_BASE: ${OB1_EMBEDDING_API_BASE:-https://openrouter.ai/api/v1}
+      EMBEDDING_API_KEY: ${OB1_EMBEDDING_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      EMBEDDING_MODEL: ${OB1_EMBEDDING_MODEL:-openai/text-embedding-3-small}
+      MCP_ACCESS_KEY: ${OB1_MCP_ACCESS_KEY:-}
+      PORT: 8000
+    ports:
+      - "${OB1_MCP_PORT:-3101}:8000"
+    networks:
+      - agent-net
+
   # ═══════════════════════════════════════════════════════════════════════════
   #  ORCHESTRATOR — The agent that manages the fleet
   # ═══════════════════════════════════════════════════════════════════════════
