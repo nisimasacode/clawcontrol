@@ -95,6 +95,7 @@ const agentBlock = `
       TERM: xterm-256color
       TZ: \${TZ:-Europe/Berlin}
       OPENCLAW_GATEWAY_TOKEN: \${${envPrefix}_GATEWAY_TOKEN:-}
+      TELEGRAM_BOT_TOKEN: \${${envPrefix}_TELEGRAM_BOT_TOKEN:-}
       OPENAI_API_KEY: \${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: \${ANTHROPIC_API_KEY:-}
       OPENROUTER_API_KEY: \${OPENROUTER_API_KEY:-}
@@ -226,6 +227,7 @@ if (existsSync(INIT_SQL)) {
 const envBlock = `
 # ── ${label} ──
 ${envPrefix}_GATEWAY_TOKEN=
+${envPrefix}_TELEGRAM_BOT_TOKEN=
 ${envPrefix}_GATEWAY_PORT=${nextGateway}
 ${envPrefix}_BRIDGE_PORT=${nextBridge}
 ${envPrefix}_CHROMIUM_UI_PORT=${nextChromiumUI}

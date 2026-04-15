@@ -1,0 +1,5 @@
+scripts/ob1/server.py
+scripts/ob1/capture_thought
+scripts/ob1/list_thoughts
+scripts/ob1/search_thoughts
+scripts/ob1/thought_stats

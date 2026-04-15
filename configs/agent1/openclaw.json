@@ -1,7 +1,14 @@
 {
   "gateway": {
     "mode": "local",
-    "bind": "lan"
+    "bind": "lan",
+    "auth": {
+      "mode": "token",
+      "token": "${OPENCLAW_GATEWAY_TOKEN}",
+      "rateLimit": {
+        "maxAttempts": 10
+      }
+    }
   },
   "mcpServers": {
     "ob1": {
@@ -22,6 +29,69 @@
       "remote": {
         "cdpUrl": "http://chromium-agent1:9223",
         "color": "#FF4500"
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "memorySearch": {
+        "sources": [
+          "memory",
+          "sessions"
+        ],
+        "experimental": {
+          "sessionMemory": true
+        },
+        "provider": "openai",
+        "remote": {
+          "baseUrl": "https://openrouter.ai/api/v1",
+          "apiKey": "${OPENROUTER_API_KEY}"
+        },
+        "model": "text-embedding-3-small"
+      }
+    }
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "dmPolicy": "pairing",
+      "groupPolicy": "allowlist",
+      "streaming": "partial",
+      "accounts": {
+        "main": {
+          "dmPolicy": "pairing",
+          "botToken": "${TELEGRAM_BOT_TOKEN}",
+          "groupPolicy": "allowlist",
+          "streaming": "partial"
+        }
+      },
+      "default": {
+        "dmPolicy": "pairing",
+        "groupPolicy": "allowlist",
+        "streaming": "partial"
+      }
+    }
+  },
+  "bindings": [
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "telegram",
+        "accountId": "main"
+      }
+    }
+  ],
+  "skills": {
+    "entries": {
+      "openai-whisper-api": {
+        "apiKey": "$OPENAI_API_KEY"
+      }
+    }
+  },
+  "plugins": {
+    "entries": {
+      "telegram": {
+        "enabled": true
       }
     }
   }
