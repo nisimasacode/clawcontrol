@@ -85,6 +85,7 @@ const agentBlock = `
 
   openclaw-${name}:
     <<: *openclaw-common
+    image: \${OPENCLAW_${envPrefix}_IMAGE:-ghcr.io/openclaw/openclaw:latest}
     container_name: openclaw-${name}
     depends_on:
       ob1-db:
@@ -228,6 +229,7 @@ ${envPrefix}_GATEWAY_TOKEN=
 ${envPrefix}_GATEWAY_PORT=${nextGateway}
 ${envPrefix}_BRIDGE_PORT=${nextBridge}
 ${envPrefix}_CHROMIUM_UI_PORT=${nextChromiumUI}
+#OPENCLAW_${envPrefix}_IMAGE=ghcr.io/openclaw/openclaw:latest
 `;
 
 for (const path of [ENV_EXAMPLE, ENV_FILE]) {

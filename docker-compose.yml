@@ -16,7 +16,7 @@
 # YAML anchors — shared config blocks reused across services
 # ─────────────────────────────────────────────────────────────────────────────
 x-openclaw-common: &openclaw-common
-  image: ghcr.io/openclaw/openclaw:latest
+  image: ${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw:latest}
   init: true
   restart: unless-stopped
   networks:
@@ -95,6 +95,7 @@ services:
 
   openclaw-orchestrator:
     <<: *openclaw-common
+    image: ${OPENCLAW_ORCHESTRATOR_IMAGE:-ghcr.io/openclaw/openclaw:latest}
     container_name: openclaw-orchestrator
     depends_on:
       ob1-db:
@@ -152,6 +153,7 @@ services:
 
   openclaw-agent1:
     <<: *openclaw-common
+    image: ${OPENCLAW_AGENT1_IMAGE:-ghcr.io/openclaw/openclaw:latest}
     container_name: openclaw-agent1
     depends_on:
       ob1-db:
@@ -212,6 +214,7 @@ services:
 
   openclaw-agent2:
     <<: *openclaw-common
+    image: ${OPENCLAW_AGENT2_IMAGE:-ghcr.io/openclaw/openclaw:latest}
     container_name: openclaw-agent2
     depends_on:
       ob1-db:
