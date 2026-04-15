@@ -2,8 +2,8 @@
 # agent-orc  —  Multi-Agent OpenClaw Stack
 #
 # Topology:
-#   Shared:       ob1-db (PostgreSQL+pgvector), ob1-rest (PostgREST)
-#   Orchestrator: openclaw-orchestrator + chromium-orchestrator
+#   Shared:       ob1-db (PostgreSQL+pgvector), ob1-rest (PostgREST), ob1-mcp
+#   Orchestrator: openclaw-orchestrator
 #   Worker 1:     openclaw-agent1       + chromium-agent1
 #   Worker 2:     openclaw-agent2       + chromium-agent2
 #
@@ -136,6 +136,10 @@ services:
       - "-c"
       - |
         test -f /home/node/.openclaw/openclaw.json || cp /seed/openclaw.json /home/node/.openclaw/openclaw.json
+        mkdir -p /home/node/.openclaw/workspace
+        if [ -d /compose-files/workspace-seed/orchestrator ] && [ -z "$(ls -A /home/node/.openclaw/workspace 2>/dev/null)" ]; then
+          cp -a /compose-files/workspace-seed/orchestrator/. /home/node/.openclaw/workspace/
+        fi
         exec node dist/index.js gateway --bind lan --port 18789
     healthcheck:
       test:
