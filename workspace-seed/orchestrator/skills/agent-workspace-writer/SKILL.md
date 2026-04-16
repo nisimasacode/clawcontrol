@@ -32,6 +32,21 @@ The main agent uses `~/.openclaw/workspace/`. Confirm the exact path before
 writing any files. When a new agent is created with `openclaw agents add`, the
 workspace directory is set at that time.
 
+## Canonical worker templates in this repository
+
+When modeling a new worker agent workspace, start from:
+
+- `/compose-files/workspace-seed/worker/AGENTS.md`
+- `/compose-files/workspace-seed/worker/IDENTITY.md`
+- `/compose-files/workspace-seed/worker/SOUL.md`
+- `/compose-files/workspace-seed/worker/USER.md`
+- `/compose-files/workspace-seed/worker/TOOLS.md`
+- `/compose-files/workspace-seed/worker/HEARTBEAT.md`
+- `/compose-files/workspace-seed/worker/MEMORY.md`
+
+These files are role-agnostic scaffolds. Copy/adapt them into the target
+agent workspace, then fill placeholders with factual, agent-specific details.
+
 ## Workspace file map
 
 Write each file below only when you have the necessary information. Never
@@ -43,7 +58,9 @@ invent persona details, tools, or user facts — ask or infer them from context.
 - **Contents to include:**
   - The agent's mission and role
   - Rules, priorities, and boundaries
-  - How and when to use memory files
+  - **Explicit instruction that OB1 is the agent's primary durable memory**
+  - **Required startup step to query OB1 before substantive responses**
+  - **Fallback behavior when OB1 is unavailable (state failure explicitly, then use file memory)**
   - Session startup checklist (e.g. read today's memory, check HEARTBEAT.md)
   - Any workflows specific to this agent
 - **Keep it under 20 000 chars** (bootstrap truncation limit).
@@ -173,6 +190,7 @@ When bootstrapping a new agent's workspace:
 Before handing off:
 - [ ] All file contents are factual — no invented personas, tools, or user details
 - [ ] `AGENTS.md` includes a startup checklist (what to read, what to check)
+- [ ] `AGENTS.md` explicitly states OB1 is primary durable memory and includes OB1 startup/fallback behavior
 - [ ] `HEARTBEAT.md` is concise (< 300 words)
 - [ ] No credentials or API keys are written into workspace files
 - [ ] `BOOTSTRAP.md` (if written) instructs the agent to delete it after first run
