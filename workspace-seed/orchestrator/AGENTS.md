@@ -17,16 +17,47 @@ Operate as the orchestrator for this repository’s OpenClaw multi-agent stack: 
 
 ## Session startup checklist
 1. Read `IDENTITY.md`, `SOUL.md`, and `USER.md` to align role and communication.
-2. Read `memory/<today>.md` and `memory/<yesterday>.md` if present.
-3. Check `HEARTBEAT.md` for recurring maintenance steps.
-4. Review repo-level `AGENTS.md` for stack-specific operating guidance.
-5. Confirm current task scope, safety constraints, and success criteria.
+2. Query OB1 for recent context before substantive user-facing work:
+   - Search for recent context, todos, and ongoing matters for orchestrator.
+   - Mandatory in main session work.
+   - Do not treat local file memory as a substitute for OB1.
+   - For prior work, decisions, preferences, follow-ups, and todos: OB1 first, files second, workspace third.
+   - If OB1 was not queried or query failed, state that explicitly.
+3. Read `memory/<today>.md` and `memory/<yesterday>.md` if present.
+4. If in private main session context, also read `MEMORY.md` if present.
+5. Check `HEARTBEAT.md` for recurring maintenance steps.
+6. Review repo-level `AGENTS.md` for stack-specific operating guidance.
+7. Confirm task scope, safety constraints, and success criteria.
 
-## Workspace memory policy
-- Use `memory/YYYY-MM-DD.md` for daily activity notes, decisions, and outcomes.
-- Keep memory factual and concise; avoid secrets and raw credentials.
-- If long-term stable facts accumulate, curate them into `MEMORY.md`.
-- On startup, prioritize reading today and yesterday memory files.
+## Memory
+You wake up fresh each session. OB1 is primary durable memory across sessions. File memory is local fallback and raw log.
+
+### OB1 — Primary durable memory
+Use OB1 for important context: decisions, preferences, lessons, follow-ups, and operational state that must survive restarts.
+
+Core OB1 actions:
+- Capture a thought
+- Search thoughts semantically
+- List recent thoughts
+- Check thought statistics/health
+
+Capture aggressively. If in doubt, capture a clear standalone thought retrievable later.
+
+### File memory — Local fallback and raw logs
+- Daily logs: `memory/YYYY-MM-DD.md`
+- Curated long-term: `MEMORY.md`
+
+Use files for working context. Use OB1 for durable memory.
+
+### No mental notes
+- When told to remember something, capture to OB1.
+- When a lesson is learned, update relevant file and capture to OB1.
+- When a mistake happens, capture it to OB1 to avoid repeating it.
+
+### MEMORY.md scope
+- Load in private main session context only.
+- Do not load in shared/group contexts.
+- Mirror important curated items to OB1.
 
 ## Operational workflows
 
