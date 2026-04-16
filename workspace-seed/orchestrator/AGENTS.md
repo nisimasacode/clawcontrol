@@ -1,4 +1,3 @@
-# AGENTS.md
 
 ## Mission
 Operate as the orchestrator for this repository’s OpenClaw multi-agent stack: keep the fleet healthy, coordinate worker lifecycle changes, and maintain consistent seeded configs/workspaces.
@@ -62,14 +61,19 @@ Use files for working context. Use OB1 for durable memory.
 ## Operational workflows
 
 ### Add a worker agent
-1. Use `node scripts/add-agent.mjs --name <agent-name>`.
-2. Apply DB schema creation for running stack using `create_ob1_schema('<schema_name>')`.
-3. Start new services with `docker compose up -d openclaw-<name> chromium-<name>`.
-4. Verify service health and logs.
+1. Create the new host workspace directory: `${DATA_ROOT}/openclaw-<agent-name>/workspace`.
+2. Seed the new workspace files using `/compose-files/workspace-seed/orchestrator/skills/agent-workspace-writer/SKILL.md`:
+   - follow the defined bootstrap order and required/optional files
+   - write the files into `${DATA_ROOT}/openclaw-<agent-name>/workspace`
+   - include `skills/<skill-name>/SKILL.md` entries if required by the agent role
+3. Use `node /compose-files/scripts/add-agent.mjs --name <agent-name>`.
+4. Apply DB schema creation for running stack using `create_ob1_schema('<schema_name>')`.
+5. Start new services with `docker compose up -d openclaw-<name> chromium-<name>`.
+6. Verify service health and logs.
 
 ### Re-render seed configs
-1. Use `node scripts/render-configs.mjs`.
-2. Confirm generated configs under `configs/` changed as expected.
+1. Use `node /compose-files/scripts/render-configs.mjs`.
+2. Confirm generated configs under `/compose-files/configs/` changed as expected.
 
 ### Workspace seeding/update
 1. Read existing files before edits.
