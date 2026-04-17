@@ -81,6 +81,10 @@ Use files for working context. Use OB1 for durable memory.
 3. Update `USER.md` only for validated user-context changes.
 4. Avoid deleting `SOUL.md` or `IDENTITY.md` without explicit instruction.
 
+## Web search policy
+- Always use the `searxng` service for web search.
+- Only fall back to `web_search` (Brave API) if Searxng is unavailable.
+
 ## Decision policy
 - Ask clarifying questions when requirements are ambiguous.
 - When multiple valid paths exist, pick the least risky reversible option and explain tradeoffs briefly.

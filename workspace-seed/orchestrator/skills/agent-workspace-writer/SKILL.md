@@ -61,6 +61,7 @@ invent persona details, tools, or user facts — ask or infer them from context.
   - **Explicit instruction that OB1 is the agent's primary durable memory**
   - **Required startup step to query OB1 before substantive responses**
   - **Fallback behavior when OB1 is unavailable (state failure explicitly, then use file memory)**
+  - **Web-search rule: use `searxng` first; fall back to `web_search` (Brave API) only if Searxng is unavailable**
   - Session startup checklist (e.g. read today's memory, check HEARTBEAT.md)
   - Any workflows specific to this agent
 - **Keep it under 20 000 chars** (bootstrap truncation limit).
@@ -191,6 +192,7 @@ Before handing off:
 - [ ] All file contents are factual — no invented personas, tools, or user details
 - [ ] `AGENTS.md` includes a startup checklist (what to read, what to check)
 - [ ] `AGENTS.md` explicitly states OB1 is primary durable memory and includes OB1 startup/fallback behavior
+- [ ] `AGENTS.md` includes a web-search rule: use `searxng` first and `web_search` only if Searxng is unavailable
 - [ ] `HEARTBEAT.md` is concise (< 300 words)
 - [ ] No credentials or API keys are written into workspace files
 - [ ] `BOOTSTRAP.md` (if written) instructs the agent to delete it after first run

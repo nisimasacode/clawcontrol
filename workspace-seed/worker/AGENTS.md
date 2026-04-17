@@ -40,6 +40,10 @@ Ask first for:
 - Public posts
 - Any action that leaves the private/local environment
 
+## Web Search Rule
+- Always use the `searxng` service for web search.
+- Only fall back to `web_search` (Brave API) if Searxng is unavailable.
+
 ## Time-Sensitive Fact Rule
 For opening hours, prices, availability, or schedules:
 1. Verify with current sources.

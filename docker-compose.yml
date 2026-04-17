@@ -89,6 +89,24 @@ services:
     networks:
       - agent-net
 
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+    volumes:
+      - ./settings.yml:/etc/searxng/settings.yml
+      - ${DATA_ROOT}/searxng/logs:/var/log/uwsgi
+      - ${DATA_ROOT}/searxng-cache:/var/cache/searxng
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "1"
+    networks:
+      - agent-net
+
   # ═══════════════════════════════════════════════════════════════════════════
   #  ORCHESTRATOR — The agent that manages the fleet
   # ═══════════════════════════════════════════════════════════════════════════
@@ -282,3 +300,6 @@ services:
 networks:
   agent-net:
     driver: bridge
+
+volumes:
+  searxng-cache:
