@@ -3,10 +3,10 @@
  * add-agent — Add a new worker agent to the agent-orc stack.
  *
  * Usage:
- *   node scripts/add-agent.mjs --name <agent-name>
+ *   node scripts/add-agent.mjs --name <agent-name> [--browser <true|false>]
  *
  * What it does:
- *   1. Adds openclaw-<name> + chromium-<name> to docker-compose.yml
+ *   1. Adds openclaw-<name> (+ optional chromium-<name>) to docker-compose.yml
  *   2. Adds orchestrator volume mount for the new agent's config
  *   3. Updates PostgREST PGRST_DB_SCHEMAS
  *   4. Updates ob1/init.sql with the new schema + grants
@@ -28,15 +28,32 @@ const ENV_EXAMPLE = resolve(ROOT, ".env.example");
 const ENV_FILE = resolve(ROOT, ".env");
 const INIT_SQL = resolve(ROOT, "ob1", "init.sql");
 const TEMPLATE = resolve(ROOT, "templates", "openclaw.worker.json");
+const TEMPLATE_NO_BROWSER = resolve(ROOT, "templates", "openclaw.worker.nobrowser.json");
 
 // ── Parse args ──────────────────────────────────────────────────────────────
 const args = process.argv.slice(2);
 const nameIdx = args.indexOf("--name");
+const browserIdx = args.indexOf("--browser");
+
 if (nameIdx === -1 || !args[nameIdx + 1]) {
-  console.error("Usage: node scripts/add-agent.mjs --name <agent-name>");
+  console.error("Usage: node scripts/add-agent.mjs --name <agent-name> [--browser <true|false>]");
   process.exit(1);
 }
+
+if (browserIdx !== -1 && !args[browserIdx + 1]) {
+  console.error("Usage: node scripts/add-agent.mjs --name <agent-name> [--browser <true|false>]");
+  process.exit(1);
+}
+
 const name = args[nameIdx + 1];
+const browserArg = browserIdx === -1 ? "true" : args[browserIdx + 1].toLowerCase();
+
+if (browserArg !== "true" && browserArg !== "false") {
+  console.error('Error: --browser must be "true" or "false".');
+  process.exit(1);
+}
+
+const browserEnabled = browserArg === "true";
 
 if (!/^[a-z][a-z0-9-]*$/.test(name)) {
   console.error(
@@ -74,8 +91,10 @@ const nextGateway = highestGateway + 2;
 const nextBridge = nextGateway + 1;
 
 // Chromium UI ports increment from 3002
-const highestChromiumUI = findHighestDefault(/:-(\d+)\}:3001/g) || 3001;
-const nextChromiumUI = highestChromiumUI + 1;
+const highestChromiumUI = browserEnabled
+  ? findHighestDefault(/:-(\d+)\}:3001/g) || 3001
+  : 0;
+const nextChromiumUI = browserEnabled ? highestChromiumUI + 1 : null;
 
 // ── Generate service blocks ─────────────────────────────────────────────────
 const agentBlock = `
@@ -102,8 +121,7 @@ const agentBlock = `
       OB1_DB_URL: "postgres://\${POSTGRES_USER:-ob1}:\${POSTGRES_PASSWORD}@ob1-db:5432/\${POSTGRES_DB:-openbrain}"
       OB1_REST_URL: "http://ob1-rest:3000"
       OB1_SCHEMA: ${schema}
-      BROWSER_CDP_URL: "http://chromium-${name}:9223"
-    volumes:
+${browserEnabled ? `      BROWSER_CDP_URL: "http://chromium-${name}:9223"\n` : ""}    volumes:
       - \${DATA_ROOT}/openclaw-${name}/.openclaw:/home/node/.openclaw
       - \${DATA_ROOT}/openclaw-${name}/workspace:/home/node/.openclaw/workspace
       - ./configs/${name}/openclaw.json:/seed/openclaw.json:ro
@@ -126,7 +144,10 @@ const agentBlock = `
       timeout: 5s
       retries: 5
       start_period: 20s
+`;
 
+const chromiumBlock = browserEnabled
+  ? `
   chromium-${name}:
     <<: *chromium-common
     container_name: chromium-${name}
@@ -140,7 +161,10 @@ const agentBlock = `
       - \${DATA_ROOT}/chromium-${name}:/config:rw
     ports:
       - "\${${envPrefix}_CHROMIUM_UI_PORT:-${nextChromiumUI}}:3001"
-`;
+`
+  : "";
+
+const serviceBlock = `${agentBlock}${chromiumBlock}`;
 
 // ── 1. Insert agent block before the NETWORKS section ───────────────────────
 // Detect line ending style used in the file
@@ -152,7 +176,7 @@ if (!networkMatch) {
   process.exit(1);
 }
 // Normalise the generated block to the file's line-ending style
-const block = agentBlock.trimEnd().replace(/\r?\n/g, eol);
+const block = serviceBlock.trimEnd().replace(/\r?\n/g, eol);
 compose = compose.replace(networkRe, block + eol + eol + networkMatch[0]);
 
 // ── 2. Add orchestrator mount for the new agent's config ────────────────────
@@ -175,7 +199,8 @@ const configDir = resolve(ROOT, "configs", name);
 mkdirSync(configDir, { recursive: true });
 const configOut = resolve(configDir, "openclaw.json");
 if (!existsSync(configOut)) {
-  const tpl = readFileSync(TEMPLATE, "utf-8");
+  const templatePath = browserEnabled ? TEMPLATE : TEMPLATE_NO_BROWSER;
+  const tpl = readFileSync(templatePath, "utf-8");
   const rendered = tpl.replace(/\{\{AGENT_NAME\}\}/g, name);
   writeFileSync(configOut, rendered);
   console.log(`✓ configs/${name}/openclaw.json rendered from template`);
@@ -230,8 +255,7 @@ ${envPrefix}_GATEWAY_TOKEN=
 ${envPrefix}_TELEGRAM_BOT_TOKEN=
 ${envPrefix}_GATEWAY_PORT=${nextGateway}
 ${envPrefix}_BRIDGE_PORT=${nextBridge}
-${envPrefix}_CHROMIUM_UI_PORT=${nextChromiumUI}
-#OPENCLAW_${envPrefix}_IMAGE=ghcr.io/openclaw/openclaw:latest
+${browserEnabled ? `${envPrefix}_CHROMIUM_UI_PORT=${nextChromiumUI}\n` : ""}#OPENCLAW_${envPrefix}_IMAGE=ghcr.io/openclaw/openclaw:latest
 `;
 
 for (const path of [ENV_EXAMPLE, ENV_FILE]) {
@@ -248,8 +272,9 @@ for (const path of [ENV_EXAMPLE, ENV_FILE]) {
 console.log(`
 Agent "${name}" added successfully.
 
-  Ports:  gateway=${nextGateway}  bridge=${nextBridge}  chromium-ui=${nextChromiumUI}
+  Ports:  gateway=${nextGateway}  bridge=${nextBridge}${browserEnabled ? `  chromium-ui=${nextChromiumUI}` : ""}
   Schema: ${schema}
+  Browser: ${browserEnabled ? "enabled" : "disabled"}
 
 Next steps:
 
@@ -257,5 +282,5 @@ Next steps:
   docker exec ob1-db psql -U ob1 -d openbrain -c "SELECT create_ob1_schema('${schema}');"
 
   # Start the new containers:
-  docker compose up -d openclaw-${name} chromium-${name}
+  docker compose up -d openclaw-${name}${browserEnabled ? ` chromium-${name}` : ""}
 `);
