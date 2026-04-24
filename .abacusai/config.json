@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(git --no-pager status --short 2>&1 || true)"
+    ]
+  }
+}
