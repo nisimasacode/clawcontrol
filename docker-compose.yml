@@ -1,5 +1,5 @@
 # =============================================================================
-# agent-orc  —  Multi-Agent OpenClaw Stack
+# ClawControl  —  Multi-Agent OpenClaw Stack
 #
 # Topology:
 #   Shared:       ob1-db (PostgreSQL+pgvector), ob1-rest (PostgREST), ob1-mcp

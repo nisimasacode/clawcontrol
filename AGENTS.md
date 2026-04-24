@@ -4,7 +4,7 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 ## What this repo is
 
-`agent-orc` is a Docker Compose stack that runs a fleet of **OpenClaw** AI agents sharing a single **OB1** (Open Brain) PostgreSQL+pgvector memory database. The topology is:
+`ClawControl` is a Docker Compose stack that runs a fleet of **OpenClaw** AI agents sharing a single **OB1** (Open Brain) PostgreSQL+pgvector memory database. The topology is:
 
 - **ob1-db** — PostgreSQL 16 + pgvector; the shared vector memory store
 - **ob1-rest** — PostgREST; REST API over the OB1 database

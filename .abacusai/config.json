@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(git *)",
-      "Bash(git --no-pager status --short 2>&1 || true)"
+      "Bash(git --no-pager status --short 2>&1 || true)",
+      "Bash(git --no-pager status --short 2>&1 || true)",
+      "Bash(try { Get-Command gh 2>&1 } catch { echo \"Error: $($_.Exception.Message)\" })"
     ]
   }
 }

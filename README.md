@@ -1,6 +1,9 @@
-# agent-orc
+# ClawControl
 
-`agent-orc` is a Docker Compose-based multi-agent runtime for OpenClaw. It runs one orchestrator agent and multiple worker agents, all sharing a single OB1 (Open Brain) PostgreSQL + pgvector memory backend.
+`ClawControl` is a Docker Compose-based multi-agent runtime for OpenClaw. It runs one orchestrator agent and multiple worker agents, all sharing a single OB1 (Open Brain) PostgreSQL + pgvector memory backend.
+
+The database memory layer in this stack is based on OB1:
+- https://github.com/NateBJones-Projects/OB1
 
 This repository is designed so you can:
 - bring up a complete local/hosted agent fleet quickly
@@ -74,10 +77,49 @@ Defaults follow deterministic patterns:
 - OB1 MCP defaults to `3101`
 - OB1 PostgreSQL host exposure defaults to `5433`
 
+## Why this setup fixes common OpenClaw pain points
+
+A lot of OpenClaw deployments run into two recurring classes of issues: memory reliability and browser automation instability. This stack is opinionated specifically to reduce both.
+
+### Common memory issues this solves
+
+- per-agent schema isolation (`orchestrator`, `agent1`, `agent2`, etc.) to prevent cross-agent memory bleed
+- deterministic OB1 initialization via `ob1/init.sql`, including `create_ob1_schema(...)`
+- semantic retrieval function (`match_thoughts`) and vector indexing built into each schema
+- deduplicating upsert path (`upsert_thought`) using content fingerprints
+- scripted agent expansion (`scripts/add-agent.mjs`) that updates compose + SQL + env + config together to avoid partial/manual drift
+
+### Common browser automation issues this solves
+
+Typical problems in ad-hoc setups:
+- multiple agents contending for one browser instance/profile
+- browser config drift between agent definitions
+- automation breakage after restarts or host moves
+
+How `ClawControl` addresses them:
+- dedicated Chromium sidecar per worker (`chromium-agentN`) for strict isolation
+- fixed internal CDP target per agent (`http://chromium-<name>:9223`)
+- deterministic port allocation conventions for gateway/bridge/chromium UI
+- browser/no-browser template split (`openclaw.worker.json` vs `openclaw.worker.nobrowser.json`) for explicit capability control
+- persistent host-mounted browser config and agent workspace paths under `${DATA_ROOT}`
+
+### Security improvements over typical multi-agent OpenClaw setups
+
+This design improves security posture by isolating each agent into its own service containers, rather than sharing one runtime/browser process across many agents.
+
+Key security benefits:
+- per-agent process/container isolation reduces blast radius if one worker is compromised or misconfigured
+- per-agent browser sidecars reduce cross-agent session/cookie/token leakage risk
+- per-agent gateway tokens support independent credential rotation and revocation
+- per-agent OB1 schemas reduce accidental cross-agent memory disclosure
+- orchestrator/worker role separation keeps high-privilege orchestration concerns out of worker containers
+
+This is still a shared Docker network, so isolation is not equivalent to separate hosts or separate clusters, but it is materially safer than tightly shared single-container multi-agent patterns.
+
 ## Prerequisites
 
 - Docker Engine with Compose v2 (`docker compose`)
-- Linux/Unraid host recommended
+- Linux host recommended
 - Node.js 18+ (for local helper scripts)
 - Writable storage path for `${DATA_ROOT}`
 
@@ -86,8 +128,8 @@ Defaults follow deterministic patterns:
 ## 1) Clone and enter repo
 
 ```bash
-git clone <your-repo-url> agent-orc
-cd agent-orc
+git clone <your-repo-url>
+cd <repo-directory>
 ```
 
 ## 2) Create environment file

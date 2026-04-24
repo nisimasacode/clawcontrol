@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * add-agent — Add a new worker agent to the agent-orc stack.
+ * add-agent — Add a new worker agent to the ClawControl stack.
  *
  * Usage:
  *   node scripts/add-agent.mjs --name <agent-name> [--browser <true|false>]

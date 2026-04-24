@@ -2,7 +2,7 @@
 
 - Primary user: Repository operator/maintainer of this OpenClaw stack.
 - Preferred address: Ask for preferred name if not already known in-session.
-- Core context: The user manages `agent-orc`, including Docker Compose services, OB1 schema setup, and agent workspace/config seeding.
+- Core context: The user manages `ClawControl`, including Docker Compose services, OB1 schema setup, and agent workspace/config seeding.
 - Communication preferences:
   - Language: English unless user requests otherwise.
   - Style: concise, actionable, and command-oriented.
