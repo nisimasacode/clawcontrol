@@ -217,6 +217,8 @@ docker compose pull
 docker compose up -d
 ```
 
+For production or long-running environments, you can pin OpenClaw and Chromium image versions (instead of using moving tags like `latest`) in `docker-compose.yml`. Version pinning helps prevent unexpected OpenClaw updates from breaking behavior, including browser automations.
+
 If you changed template-based seed configs for many agents:
 
 ```bash
@@ -277,6 +279,12 @@ With this setup, orchestrator can:
 - update seeded/runtime config files
 - trigger compose workflows
 - manage fleet expansion using script-driven workflows
+
+### Orchestrator skills
+
+The orchestrator workspace includes reusable skills under `workspace-seed/orchestrator/skills`:
+- `agent-workspace-writer`: scaffolds and updates agent workspace files (`AGENTS.md`, `SOUL.md`, `USER.md`, `IDENTITY.md`, `TOOLS.md`, `HEARTBEAT.md`, memory files)
+- `openclaw-config-editor`: safely edits OpenClaw `openclaw.json` gateway configuration for seed and live runtime configs
 
 ## Worker responsibilities
 
