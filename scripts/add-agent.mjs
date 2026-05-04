@@ -3,15 +3,17 @@
  * add-agent — Add a new worker agent to the ClawControl stack.
  *
  * Usage:
- *   node scripts/add-agent.mjs --name <agent-name> [--browser <true|false>]
+ *   node scripts/add-agent.mjs --name <agent-name> [--browser <true|false>] [--seed-auth-profiles] [--auth-profiles-source <path>]
  *
  * What it does:
  *   1. Adds openclaw-<name> (+ optional chromium-<name>) to docker-compose.yml
  *   2. Adds orchestrator volume mount for the new agent's config
  *   3. Updates PostgREST PGRST_DB_SCHEMAS
  *   4. Updates ob1/init.sql with the new schema + grants
- *   5. Appends env vars to .env.example (and .env if present)
- *   6. Prints SQL to create the schema in a running database
+ *   5. Renders configs/<name>/openclaw.json from template
+ *   6. Optionally seeds configs/<name>/auth-profiles.json from a source file
+ *   7. Appends env vars to .env.example (and .env if present)
+ *   8. Prints SQL to create the schema in a running database
  *
  * Zero dependencies — runs on any Node.js 18+.
  */
@@ -29,24 +31,46 @@ const ENV_FILE = resolve(ROOT, ".env");
 const INIT_SQL = resolve(ROOT, "ob1", "init.sql");
 const TEMPLATE = resolve(ROOT, "templates", "openclaw.worker.json");
 const TEMPLATE_NO_BROWSER = resolve(ROOT, "templates", "openclaw.worker.nobrowser.json");
+const DEFAULT_AUTH_PROFILES_SOURCE = resolve(
+  ROOT,
+  ".openclaw",
+  "agents",
+  "main",
+  "agent",
+  "auth-profiles.json"
+);
+const USAGE =
+  "Usage: node scripts/add-agent.mjs --name <agent-name> [--browser <true|false>] [--seed-auth-profiles] [--auth-profiles-source <path>]";
 
 // ── Parse args ──────────────────────────────────────────────────────────────
 const args = process.argv.slice(2);
 const nameIdx = args.indexOf("--name");
 const browserIdx = args.indexOf("--browser");
+const seedAuthProfiles = args.includes("--seed-auth-profiles");
+const authProfilesSourceIdx = args.indexOf("--auth-profiles-source");
 
-if (nameIdx === -1 || !args[nameIdx + 1]) {
-  console.error("Usage: node scripts/add-agent.mjs --name <agent-name> [--browser <true|false>]");
+if (nameIdx === -1 || !args[nameIdx + 1] || args[nameIdx + 1].startsWith("--")) {
+  console.error(USAGE);
   process.exit(1);
 }
 
-if (browserIdx !== -1 && !args[browserIdx + 1]) {
-  console.error("Usage: node scripts/add-agent.mjs --name <agent-name> [--browser <true|false>]");
+if (browserIdx !== -1 && (!args[browserIdx + 1] || args[browserIdx + 1].startsWith("--"))) {
+  console.error(USAGE);
+  process.exit(1);
+}
+
+if (
+  authProfilesSourceIdx !== -1 &&
+  (!args[authProfilesSourceIdx + 1] || args[authProfilesSourceIdx + 1].startsWith("--"))
+) {
+  console.error(USAGE);
   process.exit(1);
 }
 
 const name = args[nameIdx + 1];
 const browserArg = browserIdx === -1 ? "true" : args[browserIdx + 1].toLowerCase();
+const authProfilesSourceArg =
+  authProfilesSourceIdx === -1 ? null : args[authProfilesSourceIdx + 1];
 
 if (browserArg !== "true" && browserArg !== "false") {
   console.error('Error: --browser must be "true" or "false".');
@@ -60,6 +84,31 @@ if (!/^[a-z][a-z0-9-]*$/.test(name)) {
     'Error: name must start with a lowercase letter and contain only [a-z0-9-].'
   );
   process.exit(1);
+}
+
+const shouldSeedAuthProfiles = seedAuthProfiles || authProfilesSourceArg !== null;
+const authProfilesSourcePath = authProfilesSourceArg
+  ? resolve(authProfilesSourceArg)
+  : DEFAULT_AUTH_PROFILES_SOURCE;
+let authProfilesSeedContent = null;
+
+if (shouldSeedAuthProfiles) {
+  if (!existsSync(authProfilesSourcePath)) {
+    console.error(
+      `Error: auth profiles source not found at "${authProfilesSourcePath}". ` +
+      "Provide --auth-profiles-source <path> or omit --seed-auth-profiles."
+    );
+    process.exit(1);
+  }
+  authProfilesSeedContent = readFileSync(authProfilesSourcePath, "utf-8");
+  try {
+    JSON.parse(authProfilesSeedContent);
+  } catch (err) {
+    console.error(
+      `Error: auth profiles source at "${authProfilesSourcePath}" is not valid JSON: ${err.message}`
+    );
+    process.exit(1);
+  }
 }
 
 // Derived identifiers
@@ -124,7 +173,7 @@ const agentBlock = `
 ${browserEnabled ? `      BROWSER_CDP_URL: "http://chromium-${name}:9223"\n` : ""}    volumes:
       - \${DATA_ROOT}/openclaw-${name}/.openclaw:/home/node/.openclaw
       - \${DATA_ROOT}/openclaw-${name}/workspace:/home/node/.openclaw/workspace
-      - ./configs/${name}/openclaw.json:/seed/openclaw.json:ro
+      - ./configs/${name}:/seed:ro
     ports:
       - "\${${envPrefix}_GATEWAY_PORT:-${nextGateway}}:18789"
       - "\${${envPrefix}_BRIDGE_PORT:-${nextBridge}}:18790"
@@ -133,6 +182,10 @@ ${browserEnabled ? `      BROWSER_CDP_URL: "http://chromium-${name}:9223"\n` : "
       - "-c"
       - |
         test -f /home/node/.openclaw/openclaw.json || cp /seed/openclaw.json /home/node/.openclaw/openclaw.json
+        if [ -f /seed/auth-profiles.json ] && [ ! -f /home/node/.openclaw/agents/main/agent/auth-profiles.json ]; then
+          mkdir -p /home/node/.openclaw/agents/main/agent
+          cp /seed/auth-profiles.json /home/node/.openclaw/agents/main/agent/auth-profiles.json
+        fi
         exec node dist/index.js gateway --bind lan --port 18789
     healthcheck:
       test:
@@ -208,6 +261,16 @@ if (!existsSync(configOut)) {
   console.log(`• configs/${name}/openclaw.json already exists, skipped`);
 }
 
+if (shouldSeedAuthProfiles) {
+  const authProfilesOut = resolve(configDir, "auth-profiles.json");
+  if (!existsSync(authProfilesOut)) {
+    writeFileSync(authProfilesOut, authProfilesSeedContent);
+    console.log(`✓ configs/${name}/auth-profiles.json seeded from ${authProfilesSourcePath}`);
+  } else {
+    console.log(`• configs/${name}/auth-profiles.json already exists, skipped`);
+  }
+}
+
 // ── 4. Update ob1/init.sql — add schema creation + grants ───────────────────
 if (existsSync(INIT_SQL)) {
   let sql = readFileSync(INIT_SQL, "utf-8");
@@ -275,6 +338,7 @@ Agent "${name}" added successfully.
   Ports:  gateway=${nextGateway}  bridge=${nextBridge}${browserEnabled ? `  chromium-ui=${nextChromiumUI}` : ""}
   Schema: ${schema}
   Browser: ${browserEnabled ? "enabled" : "disabled"}
+  Auth profile seed: ${shouldSeedAuthProfiles ? `enabled (${authProfilesSourcePath})` : "disabled"}
 
 Next steps:
 

@@ -61,10 +61,12 @@ Each schema gets:
 
 For each agent container startup:
 - if `~/.openclaw/openclaw.json` does not exist, it is copied from `/seed/openclaw.json`
+- if `/seed/auth-profiles.json` exists and `~/.openclaw/agents/main/agent/auth-profiles.json` does not exist, it is copied on first start
 - if it already exists, it is left unchanged
 
 This means:
 - `configs/<agent>/openclaw.json` is the initial seed
+- `configs/<agent>/auth-profiles.json` is an optional OAuth seed
 - runtime config eventually lives in host-mounted volume under `${DATA_ROOT}`
 
 ## 4) Port conventions
@@ -241,6 +243,18 @@ Optional browser disable:
 node scripts/add-agent.mjs --name <agent-name> --browser false
 ```
 
+Optional auth profile seeding:
+
+```bash
+node scripts/add-agent.mjs --name <agent-name> --seed-auth-profiles
+```
+
+Optional custom auth profile source path:
+
+```bash
+node scripts/add-agent.mjs --name <agent-name> --seed-auth-profiles --auth-profiles-source <path-to-auth-profiles.json>
+```
+
 `add-agent.mjs` performs coordinated changes across repository state:
 - updates `docker-compose.yml`
   - adds `openclaw-<name>` service
@@ -248,6 +262,7 @@ node scripts/add-agent.mjs --name <agent-name> --browser false
   - adds orchestrator mount for new agent config
   - appends new schema to PostgREST schema list
 - renders `configs/<name>/openclaw.json` from template
+- optionally seeds `configs/<name>/auth-profiles.json` (default source: `./.openclaw/agents/main/agent/auth-profiles.json`)
 - updates `ob1/init.sql` with schema creation/grants
 - appends new env variables to `.env.example` and `.env` (if present)
 
