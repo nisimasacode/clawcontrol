@@ -32,6 +32,18 @@
       }
     }
   },
+  "mcp": {
+    "servers": {
+      "ob1": {
+        "url": "${OB1_MCP_URL}",
+        "transport": "streamable-http",
+        "headers": {
+          "x-brain-key": "${OB1_MCP_ACCESS_KEY}"
+        },
+        "connectionTimeoutMs": 30000
+      }
+    }
+  },
   "channels": {
     "telegram": {
       "enabled": true,
