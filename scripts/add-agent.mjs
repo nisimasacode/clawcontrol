@@ -13,13 +13,15 @@
  *   5. Renders configs/<name>/openclaw.json from template
  *   6. Optionally seeds configs/<name>/auth-profiles.json from a source file
  *   7. Appends env vars to .env.example (and .env if present)
- *   8. Prints SQL to create the schema in a running database
+ *   8. Regenerates nginx gateway routing template/config wiring
+ *   9. Prints SQL to create the schema in a running database
  *
  * Zero dependencies — runs on any Node.js 18+.
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { resolve, dirname } from "path";
+import { execFileSync } from "child_process";
 import { fileURLToPath } from "url";
 
 // ── Paths ───────────────────────────────────────────────────────────────────────
@@ -205,8 +207,8 @@ ${browserEnabled ? `      BROWSER_CDP_URL: "http://chromium-${name}:9223"\n` : "
       - \${DATA_ROOT}/openclaw-${name}/workspace:/home/node/.openclaw/workspace
       - ./configs/${name}:/seed:ro
     ports:
-      - "\${${envPrefix}_GATEWAY_PORT:-${nextGateway}}:18789"
-      - "\${${envPrefix}_BRIDGE_PORT:-${nextBridge}}:18790"
+      - "\${${envPrefix}_GATEWAY_PORT:-${nextGateway}}:\${${envPrefix}_GATEWAY_PORT:-${nextGateway}}"
+      - "\${${envPrefix}_BRIDGE_PORT:-${nextBridge}}:\${${envPrefix}_BRIDGE_PORT:-${nextBridge}}"
     command:
       - "/bin/sh"
       - "-c"
@@ -216,12 +218,12 @@ ${browserEnabled ? `      BROWSER_CDP_URL: "http://chromium-${name}:9223"\n` : "
           mkdir -p /home/node/.openclaw/agents/main/agent
           cp /seed/auth-profiles.json /home/node/.openclaw/agents/main/agent/auth-profiles.json
         fi
-        exec node dist/index.js gateway --bind lan --port 18789
+        exec node dist/index.js gateway --bind lan --port \${${envPrefix}_GATEWAY_PORT:-${nextGateway}}
     healthcheck:
       test:
         [
           "CMD", "node", "-e",
-          "fetch('http://127.0.0.1:18789/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+          "fetch('http://127.0.0.1:\${${envPrefix}_GATEWAY_PORT:-${nextGateway}}/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
         ]
       interval: 30s
       timeout: 5s
@@ -276,6 +278,11 @@ compose = compose.replace(
 
 writeFileSync(COMPOSE, compose);
 console.log(`✓ docker-compose.yml updated`);
+
+// ── 3b. Regenerate nginx routing template and nginx env wiring ───────────────
+execFileSync(process.execPath, [resolve(ROOT, "scripts", "render-nginx-config.mjs")], {
+  stdio: "inherit",
+});
 
 // ── 1b. Render config template ───────────────────────────────────────────────
 const configDir = resolve(ROOT, "configs", name);

@@ -76,8 +76,9 @@ Gateway ports use odd numbers (`18789` orchestrator, `+2` per agent). Bridge = g
 
 Both scripts in `scripts/` are zero-dependency Node.js (18+) ES modules that operate entirely on local files; they do not call any Docker API.
 
-- `add-agent.mjs` — the single source of truth for adding an agent; edits compose, SQL, env, and renders the config in one pass
+- `add-agent.mjs` — the single source of truth for adding an agent; edits compose, SQL, env, renders the config, and regenerates nginx routing in one pass
 - `render-configs.mjs` — discovers all agents from compose and re-renders their seed configs from `templates/`
+- `render-nginx-config.mjs` — discovers all OpenClaw services from compose and regenerates nginx routing/upstream env wiring
 
 ### Skills
 

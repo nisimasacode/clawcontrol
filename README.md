@@ -170,13 +170,22 @@ Or generate the per-agent OB1 MCP keys automatically:
 node scripts/generate-ob1-mcp-keys.mjs
 ```
 
-## 3) Bring up stack
+## 3) HTTPS certificates for nginx
+
+This repository ships **dummy self-signed certs** for local/dev usage:
+- `nginx/certs/tls.crt`
+- `nginx/certs/tls.key`
+
+These are only placeholders so the stack can start with HTTPS enabled immediately.
+For production, replace both files with real certificates issued for your domain.
+
+## 4) Bring up stack
 
 ```bash
 docker compose up -d
 ```
 
-## 4) Verify health
+## 5) Verify health
 
 ```bash
 docker compose ps
@@ -279,10 +288,12 @@ node scripts/add-agent.mjs --name <agent-name> --seed-auth-profiles --auth-profi
   - adds `chromium-<name>` service if browser enabled
   - adds orchestrator mount for new agent config
   - appends new schema to PostgREST schema list
+  - regenerates `openclaw-nginx` env wiring for all discovered gateway ports
 - renders `configs/<name>/openclaw.json` from template
 - optionally seeds `configs/<name>/auth-profiles.json` (default source: `./.openclaw/agents/main/agent/auth-profiles.json`)
 - updates `ob1/init.sql` with schema creation/grants
 - appends new env variables to `.env.example` and `.env` (if present), including `<AGENT>_OB1_MCP_ACCESS_KEY`
+- regenerates `nginx/nginx.conf.template` route/upstream blocks for all discovered OpenClaw services
 
 If OB1 is already running, create schema live:
 
@@ -442,6 +453,7 @@ Check:
 - Never commit populated `.env` files
 - Rotate gateway tokens and provider keys regularly
 - Restrict host-level exposure of gateway ports where possible
+- Replace `nginx/certs/tls.crt` and `nginx/certs/tls.key` with valid production certificates before internet exposure
 - Limit who can access Docker socket on host
 
 ## Repository layout

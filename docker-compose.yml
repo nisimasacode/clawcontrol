@@ -215,8 +215,8 @@ services:
       # Docker socket for running compose commands
       - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
-      - "${ORCHESTRATOR_GATEWAY_PORT:-18789}:18789"
-      - "${ORCHESTRATOR_BRIDGE_PORT:-18790}:18790"
+      - "${ORCHESTRATOR_GATEWAY_PORT:-18789}:${ORCHESTRATOR_GATEWAY_PORT:-18789}"
+      - "${ORCHESTRATOR_BRIDGE_PORT:-18790}:${ORCHESTRATOR_BRIDGE_PORT:-18790}"
     command:
       - "/bin/sh"
       - "-c"
@@ -226,12 +226,12 @@ services:
         if [ -d /compose-files/workspace-seed/orchestrator ] && [ -z "$(ls -A /home/node/.openclaw/workspace 2>/dev/null)" ]; then
           cp -a /compose-files/workspace-seed/orchestrator/. /home/node/.openclaw/workspace/
         fi
-        exec node dist/index.js gateway --bind lan --port 18789
+        exec node dist/index.js gateway --bind lan --port ${ORCHESTRATOR_GATEWAY_PORT:-18789}
     healthcheck:
       test:
         [
           "CMD", "node", "-e",
-          "fetch('http://127.0.0.1:18789/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+          "fetch('http://127.0.0.1:${ORCHESTRATOR_GATEWAY_PORT:-18789}/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
         ]
       interval: 30s
       timeout: 5s
@@ -271,19 +271,19 @@ services:
       - ${DATA_ROOT}/openclaw-agent1/workspace:/home/node/.openclaw/workspace
       - ./configs/agent1/openclaw.json:/seed/openclaw.json:ro
     ports:
-      - "${AGENT1_GATEWAY_PORT:-18791}:18789"
-      - "${AGENT1_BRIDGE_PORT:-18792}:18790"
+      - "${AGENT1_GATEWAY_PORT:-18791}:${AGENT1_GATEWAY_PORT:-18791}"
+      - "${AGENT1_BRIDGE_PORT:-18792}:${AGENT1_BRIDGE_PORT:-18792}"
     command:
       - "/bin/sh"
       - "-c"
       - |
         test -f /home/node/.openclaw/openclaw.json || cp /seed/openclaw.json /home/node/.openclaw/openclaw.json
-        exec node dist/index.js gateway --bind lan --port 18789
+        exec node dist/index.js gateway --bind lan --port ${AGENT1_GATEWAY_PORT:-18791}
     healthcheck:
       test:
         [
           "CMD", "node", "-e",
-          "fetch('http://127.0.0.1:18789/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+          "fetch('http://127.0.0.1:${AGENT1_GATEWAY_PORT:-18791}/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
         ]
       interval: 30s
       timeout: 5s
@@ -337,19 +337,19 @@ services:
       - ${DATA_ROOT}/openclaw-agent2/workspace:/home/node/.openclaw/workspace
       - ./configs/agent2/openclaw.json:/seed/openclaw.json:ro
     ports:
-      - "${AGENT2_GATEWAY_PORT:-18793}:18789"
-      - "${AGENT2_BRIDGE_PORT:-18794}:18790"
+      - "${AGENT2_GATEWAY_PORT:-18793}:${AGENT2_GATEWAY_PORT:-18793}"
+      - "${AGENT2_BRIDGE_PORT:-18794}:${AGENT2_BRIDGE_PORT:-18794}"
     command:
       - "/bin/sh"
       - "-c"
       - |
         test -f /home/node/.openclaw/openclaw.json || cp /seed/openclaw.json /home/node/.openclaw/openclaw.json
-        exec node dist/index.js gateway --bind lan --port 18789
+        exec node dist/index.js gateway --bind lan --port ${AGENT2_GATEWAY_PORT:-18793}
     healthcheck:
       test:
         [
           "CMD", "node", "-e",
-          "fetch('http://127.0.0.1:18789/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+          "fetch('http://127.0.0.1:${AGENT2_GATEWAY_PORT:-18793}/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
         ]
       interval: 30s
       timeout: 5s
@@ -369,6 +369,23 @@ services:
       - ${DATA_ROOT}/chromium-agent2:/config:rw
     ports:
       - "${AGENT2_CHROMIUM_UI_PORT:-3003}:3001"
+
+  openclaw-nginx:
+    image: nginx:1.27-alpine
+    container_name: openclaw-nginx
+    restart: unless-stopped
+    environment:
+      ORCHESTRATOR_GATEWAY_PORT: ${ORCHESTRATOR_GATEWAY_PORT:-18789}
+      AGENT1_GATEWAY_PORT: ${AGENT1_GATEWAY_PORT:-18791}
+      AGENT2_GATEWAY_PORT: ${AGENT2_GATEWAY_PORT:-18793}
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    networks:
+      - agent-net
 
 # =============================================================================
 #  NETWORKS

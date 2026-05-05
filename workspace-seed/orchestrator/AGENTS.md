@@ -68,7 +68,7 @@ Use this exact end-to-end checklist:
    - write the files into `${DATA_ROOT}/openclaw-<agent-name>/workspace`
    - include `skills/<skill-name>/SKILL.md` entries if required by the agent role
 3. Create or render the agent-specific `openclaw.json` config through the repository’s template/generated config path so the new agent inherits the expected settings without manual drift.
-4. Use `node /compose-files/scripts/add-agent.mjs --name <agent-name>`.
+4. Use `node /compose-files/scripts/add-agent.mjs --name <agent-name>` (this also regenerates `/compose-files/nginx/nginx.conf.template` and nginx gateway env wiring in compose).
 5. Apply DB schema creation for the running stack using `create_ob1_schema('<schema_name>')`.
 6. Start the new services with `docker compose up -d ob1-mcp-<name> openclaw-<name> chromium-<name>`.
 7. Verify service health and logs for `ob1-mcp-<name>`, `openclaw-<name>`, and `chromium-<name>`.
