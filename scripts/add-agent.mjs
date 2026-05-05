@@ -6,7 +6,7 @@
  *   node scripts/add-agent.mjs --name <agent-name> [--browser <true|false>] [--seed-auth-profiles] [--auth-profiles-source <path>]
  *
  * What it does:
- *   1. Adds openclaw-<name> (+ optional chromium-<name>) to docker-compose.yml
+ *   1. Adds ob1-mcp-<name>, openclaw-<name> (+ optional chromium-<name>) to docker-compose.yml
  *   2. Adds orchestrator volume mount for the new agent's config
  *   3. Updates PostgREST PGRST_DB_SCHEMAS
  *   4. Updates ob1/init.sql with the new schema + grants
@@ -146,6 +146,32 @@ const highestChromiumUI = browserEnabled
 const nextChromiumUI = browserEnabled ? highestChromiumUI + 1 : null;
 
 // ── Generate service blocks ─────────────────────────────────────────────────
+const ob1McpBlock = `
+  ob1-mcp-${name}:
+    build:
+      context: ./ob1/mcp-server
+    container_name: ob1-mcp-${name}
+    restart: unless-stopped
+    depends_on:
+      ob1-db:
+        condition: service_healthy
+    environment:
+      DB_HOST: ob1-db
+      DB_PORT: 5432
+      DB_NAME: \${POSTGRES_DB:-openbrain}
+      DB_USER: \${POSTGRES_USER:-ob1}
+      DB_PASSWORD: \${POSTGRES_PASSWORD}
+      OB1_SCHEMA: ${schema}
+      OPENROUTER_API_KEY: \${OPENROUTER_API_KEY:-}
+      EMBEDDING_API_BASE: \${OB1_EMBEDDING_API_BASE:-https://openrouter.ai/api/v1}
+      EMBEDDING_API_KEY: \${OB1_EMBEDDING_API_KEY:-}
+      EMBEDDING_MODEL: \${OB1_EMBEDDING_MODEL:-openai/text-embedding-3-small}
+      MCP_ACCESS_KEY: \${${envPrefix}_OB1_MCP_ACCESS_KEY:-}
+      PORT: 8000
+    networks:
+      - agent-net
+`;
+
 const agentBlock = `
   # ═══════════════════════════════════════════════════════════════════════════
   #  ${label} — Worker agent
@@ -158,6 +184,8 @@ const agentBlock = `
     depends_on:
       ob1-db:
         condition: service_healthy
+      ob1-mcp-${name}:
+        condition: service_started
     environment:
       HOME: /home/node
       TERM: xterm-256color
@@ -170,6 +198,8 @@ const agentBlock = `
       OB1_DB_URL: "postgres://\${POSTGRES_USER:-ob1}:\${POSTGRES_PASSWORD}@ob1-db:5432/\${POSTGRES_DB:-openbrain}"
       OB1_REST_URL: "http://ob1-rest:3000"
       OB1_SCHEMA: ${schema}
+      OB1_MCP_URL: "http://ob1-mcp-${name}:8000"
+      OB1_MCP_ACCESS_KEY: \${${envPrefix}_OB1_MCP_ACCESS_KEY:-}
 ${browserEnabled ? `      BROWSER_CDP_URL: "http://chromium-${name}:9223"\n` : ""}    volumes:
       - \${DATA_ROOT}/openclaw-${name}/.openclaw:/home/node/.openclaw
       - \${DATA_ROOT}/openclaw-${name}/workspace:/home/node/.openclaw/workspace
@@ -217,7 +247,7 @@ const chromiumBlock = browserEnabled
 `
   : "";
 
-const serviceBlock = `${agentBlock}${chromiumBlock}`;
+const serviceBlock = `${ob1McpBlock}${agentBlock}${chromiumBlock}`;
 
 // ── 1. Insert agent block before the NETWORKS section ───────────────────────
 // Detect line ending style used in the file
@@ -318,6 +348,7 @@ ${envPrefix}_GATEWAY_TOKEN=
 ${envPrefix}_TELEGRAM_BOT_TOKEN=
 ${envPrefix}_GATEWAY_PORT=${nextGateway}
 ${envPrefix}_BRIDGE_PORT=${nextBridge}
+${envPrefix}_OB1_MCP_ACCESS_KEY=
 ${browserEnabled ? `${envPrefix}_CHROMIUM_UI_PORT=${nextChromiumUI}\n` : ""}#OPENCLAW_${envPrefix}_IMAGE=ghcr.io/openclaw/openclaw:latest
 `;
 

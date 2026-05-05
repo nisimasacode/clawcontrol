@@ -1,17 +1,6 @@
 # =============================================================================
 # ClawControl  —  Multi-Agent OpenClaw Stack
 #
-# Topology:
-#   Shared:       ob1-db (PostgreSQL+pgvector), ob1-rest (PostgREST), ob1-mcp
-#   Orchestrator: openclaw-orchestrator
-#   Worker 1:     openclaw-agent1       + chromium-agent1
-#   Worker 2:     openclaw-agent2       + chromium-agent2
-#
-# Usage:
-#   cp .env.example .env   # fill in secrets
-#   docker compose up -d
-# =============================================================================
-
 # ─────────────────────────────────────────────────────────────────────────────
 # YAML anchors — shared config blocks reused across services
 # ─────────────────────────────────────────────────────────────────────────────
@@ -89,6 +78,81 @@ services:
     networks:
       - agent-net
 
+  # ───────────────────────────────────────────────────────────────────────────
+  #  OB1 — Per-agent MCP servers (schema-pinned memory tools over MCP)
+  # ───────────────────────────────────────────────────────────────────────────
+  ob1-mcp-orchestrator:
+    build:
+      context: ./ob1/mcp-server
+    container_name: ob1-mcp-orchestrator
+    restart: unless-stopped
+    depends_on:
+      ob1-db:
+        condition: service_healthy
+    environment:
+      DB_HOST: ob1-db
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-openbrain}
+      DB_USER: ${POSTGRES_USER:-ob1}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      OB1_SCHEMA: orchestrator
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      EMBEDDING_API_BASE: ${OB1_EMBEDDING_API_BASE:-https://openrouter.ai/api/v1}
+      EMBEDDING_API_KEY: ${OB1_EMBEDDING_API_KEY:-}
+      EMBEDDING_MODEL: ${OB1_EMBEDDING_MODEL:-openai/text-embedding-3-small}
+      MCP_ACCESS_KEY: ${ORCHESTRATOR_OB1_MCP_ACCESS_KEY:-}
+      PORT: 8000
+    networks:
+      - agent-net
+
+  ob1-mcp-agent1:
+    build:
+      context: ./ob1/mcp-server
+    container_name: ob1-mcp-agent1
+    restart: unless-stopped
+    depends_on:
+      ob1-db:
+        condition: service_healthy
+    environment:
+      DB_HOST: ob1-db
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-openbrain}
+      DB_USER: ${POSTGRES_USER:-ob1}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      OB1_SCHEMA: agent1
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      EMBEDDING_API_BASE: ${OB1_EMBEDDING_API_BASE:-https://openrouter.ai/api/v1}
+      EMBEDDING_API_KEY: ${OB1_EMBEDDING_API_KEY:-}
+      EMBEDDING_MODEL: ${OB1_EMBEDDING_MODEL:-openai/text-embedding-3-small}
+      MCP_ACCESS_KEY: ${AGENT1_OB1_MCP_ACCESS_KEY:-}
+      PORT: 8000
+    networks:
+      - agent-net
+
+  ob1-mcp-agent2:
+    build:
+      context: ./ob1/mcp-server
+    container_name: ob1-mcp-agent2
+    restart: unless-stopped
+    depends_on:
+      ob1-db:
+        condition: service_healthy
+    environment:
+      DB_HOST: ob1-db
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-openbrain}
+      DB_USER: ${POSTGRES_USER:-ob1}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      OB1_SCHEMA: agent2
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      EMBEDDING_API_BASE: ${OB1_EMBEDDING_API_BASE:-https://openrouter.ai/api/v1}
+      EMBEDDING_API_KEY: ${OB1_EMBEDDING_API_KEY:-}
+      EMBEDDING_MODEL: ${OB1_EMBEDDING_MODEL:-openai/text-embedding-3-small}
+      MCP_ACCESS_KEY: ${AGENT2_OB1_MCP_ACCESS_KEY:-}
+      PORT: 8000
+    networks:
+      - agent-net
+
   searxng:
     image: searxng/searxng:latest
     container_name: searxng
@@ -118,6 +182,8 @@ services:
     depends_on:
       ob1-db:
         condition: service_healthy
+      ob1-mcp-orchestrator:
+        condition: service_started
     environment:
       HOME: /home/node
       TERM: xterm-256color
@@ -132,6 +198,8 @@ services:
       OB1_DB_URL: "postgres://${POSTGRES_USER:-ob1}:${POSTGRES_PASSWORD}@ob1-db:5432/${POSTGRES_DB:-openbrain}"
       OB1_REST_URL: "http://ob1-rest:3000"
       OB1_SCHEMA: orchestrator
+      OB1_MCP_URL: "http://ob1-mcp-orchestrator:8000"
+      OB1_MCP_ACCESS_KEY: ${ORCHESTRATOR_OB1_MCP_ACCESS_KEY:-}
     volumes:
       # Own config + workspace
       - ${DATA_ROOT}/openclaw-orchestrator/.openclaw:/home/node/.openclaw
@@ -181,6 +249,8 @@ services:
     depends_on:
       ob1-db:
         condition: service_healthy
+      ob1-mcp-agent1:
+        condition: service_started
     environment:
       HOME: /home/node
       TERM: xterm-256color
@@ -193,6 +263,8 @@ services:
       OB1_DB_URL: "postgres://${POSTGRES_USER:-ob1}:${POSTGRES_PASSWORD}@ob1-db:5432/${POSTGRES_DB:-openbrain}"
       OB1_REST_URL: "http://ob1-rest:3000"
       OB1_SCHEMA: agent1
+      OB1_MCP_URL: "http://ob1-mcp-agent1:8000"
+      OB1_MCP_ACCESS_KEY: ${AGENT1_OB1_MCP_ACCESS_KEY:-}
       BROWSER_CDP_URL: "http://chromium-agent1:9223"
     volumes:
       - ${DATA_ROOT}/openclaw-agent1/.openclaw:/home/node/.openclaw
@@ -243,6 +315,8 @@ services:
     depends_on:
       ob1-db:
         condition: service_healthy
+      ob1-mcp-agent2:
+        condition: service_started
     environment:
       HOME: /home/node
       TERM: xterm-256color
@@ -255,6 +329,8 @@ services:
       OB1_DB_URL: "postgres://${POSTGRES_USER:-ob1}:${POSTGRES_PASSWORD}@ob1-db:5432/${POSTGRES_DB:-openbrain}"
       OB1_REST_URL: "http://ob1-rest:3000"
       OB1_SCHEMA: agent2
+      OB1_MCP_URL: "http://ob1-mcp-agent2:8000"
+      OB1_MCP_ACCESS_KEY: ${AGENT2_OB1_MCP_ACCESS_KEY:-}
       BROWSER_CDP_URL: "http://chromium-agent2:9223"
     volumes:
       - ${DATA_ROOT}/openclaw-agent2/.openclaw:/home/node/.openclaw
