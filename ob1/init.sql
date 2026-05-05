@@ -133,12 +133,18 @@ SELECT create_ob1_schema('public');
 -- PostgREST roles (needed for REST API access)
 -- =============================================================================
 DO $$
+DECLARE
+  v_db_password TEXT := current_setting('app.settings.db_password', true);
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'anon') THEN
     CREATE ROLE anon NOLOGIN;
   END IF;
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticator') THEN
-    CREATE ROLE authenticator NOINHERIT LOGIN PASSWORD current_setting('app.settings.db_password', true);
+    IF v_db_password IS NULL OR btrim(v_db_password) = '' THEN
+      CREATE ROLE authenticator NOINHERIT LOGIN;
+    ELSE
+      EXECUTE format('CREATE ROLE authenticator NOINHERIT LOGIN PASSWORD %L', v_db_password);
+    END IF;
   END IF;
 END
 $$;
