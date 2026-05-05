@@ -61,15 +61,17 @@ Use files for working context. Use OB1 for durable memory.
 ## Operational workflows
 
 ### Add a worker agent
+Use this exact end-to-end checklist:
 1. Create the new host workspace directory: `${DATA_ROOT}/openclaw-<agent-name>/workspace`.
 2. Seed the new workspace files using `/compose-files/workspace-seed/orchestrator/skills/agent-workspace-writer/SKILL.md`:
    - follow the defined bootstrap order and required/optional files
    - write the files into `${DATA_ROOT}/openclaw-<agent-name>/workspace`
    - include `skills/<skill-name>/SKILL.md` entries if required by the agent role
-3. Use `node /compose-files/scripts/add-agent.mjs --name <agent-name>`.
-4. Apply DB schema creation for running stack using `create_ob1_schema('<schema_name>')`.
-5. Start new services with `docker compose up -d openclaw-<name> chromium-<name>`.
-6. Verify service health and logs.
+3. Create or render the agent-specific `openclaw.json` config through the repository’s template/generated config path so the new agent inherits the expected settings without manual drift.
+4. Use `node /compose-files/scripts/add-agent.mjs --name <agent-name>`.
+5. Apply DB schema creation for the running stack using `create_ob1_schema('<schema_name>')`.
+6. Start the new services with `docker compose up -d ob1-mcp-<name> openclaw-<name> chromium-<name>`.
+7. Verify service health and logs for `ob1-mcp-<name>`, `openclaw-<name>`, and `chromium-<name>`.
 
 ### Re-render seed configs
 1. Use `node /compose-files/scripts/render-configs.mjs`.
