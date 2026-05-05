@@ -3,17 +3,8 @@ map $http_upgrade $connection_upgrade {
   '' close;
 }
 
-upstream orchestrator_gateway {
-  server openclaw-orchestrator:${ORCHESTRATOR_GATEWAY_PORT};
-}
-
-upstream agent1_gateway {
-  server openclaw-agent1:${AGENT1_GATEWAY_PORT};
-}
-
-upstream agent2_gateway {
-  server openclaw-agent2:${AGENT2_GATEWAY_PORT};
-}
+resolver 127.0.0.11 valid=30s ipv6=off;
+resolver_timeout 5s;
 
 server {
   listen 80;
@@ -28,6 +19,7 @@ server {
   listen 443 ssl;
   http2 on;
   server_name _;
+  absolute_redirect off;
 
   ssl_certificate /etc/nginx/certs/tls.crt;
   ssl_certificate_key /etc/nginx/certs/tls.key;
@@ -45,18 +37,23 @@ server {
   }
 
   location = /orchestrator {
-    return 301 /orchestrator/;
-  }
-
-  location = /agent1 {
-    return 301 /agent1/;
-  }
-
-  location = /agent2 {
-    return 301 /agent2/;
+    set $orchestrator_upstream http://openclaw-orchestrator:${ORCHESTRATOR_GATEWAY_PORT};
+    if ($http_upgrade = "") {
+      return 301 /orchestrator/;
+    }
+    rewrite ^ / break;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_pass $orchestrator_upstream;
   }
 
   location /orchestrator/ {
+    set $orchestrator_upstream http://openclaw-orchestrator:${ORCHESTRATOR_GATEWAY_PORT};
     rewrite ^/orchestrator/?(.*)$ /$1 break;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
@@ -65,10 +62,27 @@ server {
     proxy_set_header X-Forwarded-Proto https;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection $connection_upgrade;
-    proxy_pass http://orchestrator_gateway;
+    proxy_pass $orchestrator_upstream;
+  }
+
+  location = /agent1 {
+    set $agent1_upstream http://openclaw-agent1:${AGENT1_GATEWAY_PORT};
+    if ($http_upgrade = "") {
+      return 301 /agent1/;
+    }
+    rewrite ^ / break;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_pass $agent1_upstream;
   }
 
   location /agent1/ {
+    set $agent1_upstream http://openclaw-agent1:${AGENT1_GATEWAY_PORT};
     rewrite ^/agent1/?(.*)$ /$1 break;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
@@ -77,10 +91,27 @@ server {
     proxy_set_header X-Forwarded-Proto https;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection $connection_upgrade;
-    proxy_pass http://agent1_gateway;
+    proxy_pass $agent1_upstream;
+  }
+
+  location = /agent2 {
+    set $agent2_upstream http://openclaw-agent2:${AGENT2_GATEWAY_PORT};
+    if ($http_upgrade = "") {
+      return 301 /agent2/;
+    }
+    rewrite ^ / break;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_pass $agent2_upstream;
   }
 
   location /agent2/ {
+    set $agent2_upstream http://openclaw-agent2:${AGENT2_GATEWAY_PORT};
     rewrite ^/agent2/?(.*)$ /$1 break;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
@@ -89,6 +120,6 @@ server {
     proxy_set_header X-Forwarded-Proto https;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection $connection_upgrade;
-    proxy_pass http://agent2_gateway;
+    proxy_pass $agent2_upstream;
   }
 }

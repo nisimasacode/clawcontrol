@@ -193,6 +193,7 @@ const agentBlock = `
       TERM: xterm-256color
       TZ: \${TZ:-Europe/Berlin}
       OPENCLAW_GATEWAY_TOKEN: \${${envPrefix}_GATEWAY_TOKEN:-}
+      OPENCLAW_GATEWAY_PORT: \${${envPrefix}_GATEWAY_PORT:-${nextGateway}}
       TELEGRAM_BOT_TOKEN: \${${envPrefix}_TELEGRAM_BOT_TOKEN:-}
       OPENAI_API_KEY: \${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: \${ANTHROPIC_API_KEY:-}

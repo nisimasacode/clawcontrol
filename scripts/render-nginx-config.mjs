@@ -8,7 +8,7 @@
  * What it does:
  *   1. Discovers all openclaw-<name> services from docker-compose.yml
  *   2. Rebuilds the openclaw-nginx service env wiring for *_GATEWAY_PORT vars
- *   3. Regenerates nginx/nginx.conf.template routes/upstreams for every agent
+ *   3. Regenerates nginx/nginx.conf.template routes using runtime DNS resolution
  */
 
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
@@ -98,25 +98,39 @@ function renderNginxTemplate(agents) {
 
   const defaultRoute = agents.includes("orchestrator") ? "orchestrator" : agents[0];
 
-  const upstreamBlocks = agents
-    .map((name) => {
-      const upstreamName = `${name.replace(/-/g, "_")}_gateway`;
-      const varName = gatewayVarForAgent(name);
-      const varRef = `\${${varName}}`;
-      return `upstream ${upstreamName} {\n  server openclaw-${name}:${varRef};\n}`;
-    })
-    .join("\n\n");
-
-  const exactPathRedirects = agents
-    .map(
-      (name) => `  location = /${name} {\n    return 301 /${name}/;\n  }`
-    )
-    .join("\n\n");
-
   const proxyBlocks = agents
     .map((name) => {
-      const upstreamName = `${name.replace(/-/g, "_")}_gateway`;
-      return `  location /${name}/ {\n    rewrite ^/${name}/?(.*)$ /$1 break;\n    proxy_http_version 1.1;\n    proxy_set_header Host $host;\n    proxy_set_header X-Real-IP $remote_addr;\n    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n    proxy_set_header X-Forwarded-Proto https;\n    proxy_set_header Upgrade $http_upgrade;\n    proxy_set_header Connection $connection_upgrade;\n    proxy_pass http://${upstreamName};\n  }`;
+      const upstreamVar = `${name.replace(/-/g, "_")}_upstream`;
+      const varName = gatewayVarForAgent(name);
+      const varRef = `\${${varName}}`;
+      return `  location = /${name} {
+    set $${upstreamVar} http://openclaw-${name}:${varRef};
+    if ($http_upgrade = "") {
+      return 301 /${name}/;
+    }
+    rewrite ^ / break;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_pass $${upstreamVar};
+  }
+
+  location /${name}/ {
+    set $${upstreamVar} http://openclaw-${name}:${varRef};
+    rewrite ^/${name}/?(.*)$ /$1 break;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_pass $${upstreamVar};
+  }`;
     })
     .join("\n\n");
 
@@ -125,7 +139,8 @@ function renderNginxTemplate(agents) {
   '' close;
 }
 
-${upstreamBlocks}
+resolver 127.0.0.11 valid=30s ipv6=off;
+resolver_timeout 5s;
 
 server {
   listen 80;
@@ -140,6 +155,7 @@ server {
   listen 443 ssl;
   http2 on;
   server_name _;
+  absolute_redirect off;
 
   ssl_certificate /etc/nginx/certs/tls.crt;
   ssl_certificate_key /etc/nginx/certs/tls.key;
@@ -155,8 +171,6 @@ server {
   location = / {
     return 302 /${defaultRoute}/;
   }
-
-${exactPathRedirects}
 
 ${proxyBlocks}
 }
