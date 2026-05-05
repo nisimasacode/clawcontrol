@@ -340,12 +340,16 @@ categories_as_tabs:
 
 engines:
   - name: duckduckgo
+    engine: duckduckgo
+    shortcut: ddg
     disabled: false
   - name: google
-    disabled: false
-  - name: brave
+    engine: google
+    shortcut: go
     disabled: false
   - name: bing
+    engine: bing
+    shortcut: bi
     disabled: false
   - name: 360search
     engine: 360search
@@ -453,6 +457,7 @@ engines:
     enable_http: true
     shortcut: ah
     disabled: true
+    inactive: true
 
   - name: anaconda
     engine: xpath
@@ -666,6 +671,7 @@ engines:
     shortcut: ls
     categories: videos
     disabled: true
+    inactive: true
     timeout: 5.0
 
   - name: wordnik
@@ -698,6 +704,7 @@ engines:
     categories: news
     seekr_category: news
     disabled: true
+    inactive: true
 
   - name: seekr images
     engine: seekr
@@ -706,6 +713,7 @@ engines:
     categories: images
     seekr_category: images
     disabled: true
+    inactive: true
 
   - name: seekr videos
     engine: seekr
@@ -714,11 +722,13 @@ engines:
     categories: videos
     seekr_category: videos
     disabled: true
+    inactive: true
 
   - name: stract
     engine: stract
     shortcut: str
     disabled: true
+    inactive: true
 
   - name: svgrepo
     engine: svgrepo
@@ -758,6 +768,7 @@ engines:
     content_xpath: //li/div[@class="searchresult"]
     categories: general
     disabled: true
+    inactive: true
     about:
       website: https://wikimini.org/
       wikidata_id: Q3568032
@@ -815,6 +826,7 @@ engines:
     shortcut: lrs
     engine: lib_rs
     disabled: true
+    inactive: true
 
   - name: sourcehut
     shortcut: srht
@@ -822,6 +834,7 @@ engines:
     # https://docs.searxng.org/dev/engines/online/sourcehut.html
     # sourcehut_sort_order: longest-active
     disabled: true
+    inactive: true
 
   - name: bt4g
     engine: bt4g
@@ -831,12 +844,14 @@ engines:
     engine: pkg_go_dev
     shortcut: pgo
     disabled: true
+    inactive: true
 
   - name: senscritique
     engine: senscritique
     shortcut: scr
     timeout: 4.0
     disabled: true
+    inactive: true
 
   - name: minecraft wiki
     engine: mediawiki
@@ -846,6 +861,7 @@ engines:
     api_path: "api.php"
     search_type: text
     disabled: true
+    inactive: true
     about:
       website: https://minecraft.wiki/
       wikidata_id: Q105533483
