@@ -17,6 +17,7 @@ At a high level, the stack includes:
 
 - `ob1-db`: PostgreSQL 16 + pgvector, the shared durable memory store
 - `ob1-rest`: PostgREST API layer over OB1 schemas
+- `ob1-mcp-orchestrator`, `ob1-mcp-agentN`: per-agent OB1 MCP services pinned to one schema each
 - `searxng`: internal web search service used by agents
 - `openclaw-orchestrator`: control-plane agent for fleet management
 - `openclaw-agentN`: worker agents
@@ -47,6 +48,13 @@ OB1 uses one PostgreSQL instance with separate schemas:
 - `agent1`, `agent2`, etc.
 - `public` (shared/default)
 
+Each OpenClaw service reaches memory through its own dedicated OB1 MCP service:
+- `openclaw-orchestrator` → `ob1-mcp-orchestrator` → schema `orchestrator`
+- `openclaw-agent1` → `ob1-mcp-agent1` → schema `agent1`
+- `openclaw-agent2` → `ob1-mcp-agent2` → schema `agent2`
+
+This avoids client-side schema switching and keeps MCP credentials scoped per agent.
+
 Schema provisioning is handled by `create_ob1_schema(schema_name)` in `ob1/init.sql`.
 Each schema gets:
 - `thoughts` table with `vector(1536)` embeddings
@@ -76,7 +84,7 @@ Defaults follow deterministic patterns:
 - bridge port = gateway port + 1
 - chromium UI ports start at `3002` and increment
 - OB1 REST defaults to `3100`
-- OB1 MCP defaults to `3101`
+- OB1 MCP services are internal-only by default and do not require host port publishing
 - OB1 PostgreSQL host exposure defaults to `5433`
 
 ## Why this setup fixes common OpenClaw pain points
@@ -86,6 +94,7 @@ A lot of OpenClaw deployments run into two recurring classes of issues: memory r
 ### Common memory issues this solves
 
 - per-agent schema isolation (`orchestrator`, `agent1`, `agent2`, etc.) to prevent cross-agent memory bleed
+- per-agent OB1 MCP services pinned to a single schema, avoiding cross-schema header switching
 - deterministic OB1 initialization via `ob1/init.sql`, including `create_ob1_schema(...)`
 - semantic retrieval function (`match_thoughts`) and vector indexing built into each schema
 - deduplicating upsert path (`upsert_thought`) using content fingerprints
@@ -145,13 +154,20 @@ Then edit `.env` and set at minimum:
 - `PGRST_JWT_SECRET`
 - `DATA_ROOT`
 - gateway tokens (`ORCHESTRATOR_GATEWAY_TOKEN`, `AGENT1_GATEWAY_TOKEN`, `AGENT2_GATEWAY_TOKEN`)
+- OB1 MCP access keys (`ORCHESTRATOR_OB1_MCP_ACCESS_KEY`, `AGENT1_OB1_MCP_ACCESS_KEY`, `AGENT2_OB1_MCP_ACCESS_KEY`)
 - at least one model provider key (`OPENAI_API_KEY` or `ANTHROPIC_API_KEY`)
-- `OPENROUTER_API_KEY` for memory embedding/search configuration
+- `OPENROUTER_API_KEY` and/or `OB1_EMBEDDING_API_KEY` for OB1 embedding generation
 
 Generate token-style secrets with:
 
 ```bash
 openssl rand -hex 32
+```
+
+Or generate the per-agent OB1 MCP keys automatically:
+
+```bash
+node scripts/generate-ob1-mcp-keys.mjs
 ```
 
 ## 3) Bring up stack
@@ -183,9 +199,10 @@ Important variables from `.env.example`:
 - PostgREST
   - `PGRST_JWT_SECRET`
   - `OB1_REST_PORT`
-- OB1 MCP
-  - `OB1_MCP_PORT`
-  - `OB1_MCP_ACCESS_KEY`
+- OB1 MCP / embeddings
+  - `ORCHESTRATOR_OB1_MCP_ACCESS_KEY`
+  - `AGENT1_OB1_MCP_ACCESS_KEY`
+  - `AGENT2_OB1_MCP_ACCESS_KEY`
   - `OB1_EMBEDDING_API_BASE`
   - `OB1_EMBEDDING_API_KEY`
   - `OB1_EMBEDDING_MODEL`
@@ -257,6 +274,7 @@ node scripts/add-agent.mjs --name <agent-name> --seed-auth-profiles --auth-profi
 
 `add-agent.mjs` performs coordinated changes across repository state:
 - updates `docker-compose.yml`
+  - adds `ob1-mcp-<name>` service pinned to the new schema
   - adds `openclaw-<name>` service
   - adds `chromium-<name>` service if browser enabled
   - adds orchestrator mount for new agent config
@@ -264,7 +282,7 @@ node scripts/add-agent.mjs --name <agent-name> --seed-auth-profiles --auth-profi
 - renders `configs/<name>/openclaw.json` from template
 - optionally seeds `configs/<name>/auth-profiles.json` (default source: `./.openclaw/agents/main/agent/auth-profiles.json`)
 - updates `ob1/init.sql` with schema creation/grants
-- appends new env variables to `.env.example` and `.env` (if present)
+- appends new env variables to `.env.example` and `.env` (if present), including `<AGENT>_OB1_MCP_ACCESS_KEY`
 
 If OB1 is already running, create schema live:
 
@@ -275,7 +293,7 @@ docker exec ob1-db psql -U ob1 -d openbrain -c "SELECT create_ob1_schema('<schem
 Start only new services:
 
 ```bash
-docker compose up -d openclaw-<name> chromium-<name>
+docker compose up -d ob1-mcp-<name> openclaw-<name> chromium-<name>
 ```
 
 ## Agent orchestration details
@@ -399,7 +417,9 @@ Fix:
 Check:
 - schema exists in DB (`create_ob1_schema('<schema>')` applied)
 - schema is listed in `PGRST_DB_SCHEMAS`
-- worker config MCP URL schema parameter matches expected agent schema
+- worker `OB1_MCP_URL` points to the matching `ob1-mcp-<name>` service
+- worker `OB1_MCP_ACCESS_KEY` matches the key configured for that MCP service
+- the matching `ob1-mcp-<name>` container is healthy/running
 
 ## Browser automation not working
 
@@ -429,9 +449,10 @@ Check:
 - `docker-compose.yml`: canonical service topology
 - `.env.example`: environment variable template
 - `ob1/init.sql`: OB1 schema/function/grant initialization
-- `ob1/mcp-server/`: OB1 MCP server implementation
+- `ob1/mcp-server/`: OB1 MCP server implementation used by per-agent MCP services
 - `scripts/add-agent.mjs`: add worker agent with coordinated file updates
 - `scripts/render-configs.mjs`: regenerate seed configs from templates
+- `scripts/generate-ob1-mcp-keys.mjs`: print secure per-agent OB1 MCP access keys for `.env`
 - `templates/`: orchestrator/worker config templates
 - `configs/`: per-agent rendered seed configs
 - `workspace-seed/`: initial workspace scaffolding for orchestrator/workers
