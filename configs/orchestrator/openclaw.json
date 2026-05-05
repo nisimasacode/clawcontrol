@@ -45,11 +45,6 @@
           "groupPolicy": "allowlist",
           "streaming": "partial"
         }
-      },
-      "default": {
-        "dmPolicy": "pairing",
-        "groupPolicy": "allowlist",
-        "streaming": "partial"
       }
     }
   },
