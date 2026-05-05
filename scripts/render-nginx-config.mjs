@@ -41,10 +41,18 @@ function gatewayVarForAgent(name) {
 
 function gatewayDefaultForAgent(composeText, name) {
   const varName = gatewayVarForAgent(name);
-  const re = new RegExp(`\\$\\{${varName}:-([0-9]+)\\}`);
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\$&");
+  const escapedVarName = varName.replace(/[.*+?^${}()|[\]\\]/g, "\$&");
+  const scopedRe = new RegExp(
+    `openclaw-${escapedName}:[\\s\\S]*?OPENCLAW_GATEWAY_PORT:\\s*\\$\\{${escapedVarName}:-([0-9]+)\\}`
+  );
+  const scoped = composeText.match(scopedRe);
+  if (scoped) return scoped[1];
+
+  const re = new RegExp(`\\$\\{${escapedVarName}:-([0-9]+)\\}`);
   const m = composeText.match(re);
   if (m) return m[1];
-  if (name === "orchestrator") return "18789";
+
   return "18789";
 }
 
@@ -85,7 +93,12 @@ function upsertNginxService(composeText, nginxBlock) {
 
   const nginxMatch = composeText.match(/^  openclaw-nginx:\r?\n/m);
   if (nginxMatch && nginxMatch.index !== undefined && nginxMatch.index < networkIndex) {
-    return composeText.slice(0, nginxMatch.index) + nginxBlock + composeText.slice(networkIndex);
+    const nginxStart = nginxMatch.index;
+    const nginxHeaderEnd = nginxStart + nginxMatch[0].length;
+    const afterNginx = composeText.slice(nginxHeaderEnd);
+    const nextServiceOffset = afterNginx.search(/^  [a-z0-9][a-z0-9-]*:\r?\n/m);
+    const nginxEnd = nextServiceOffset === -1 ? networkIndex : nginxHeaderEnd + nextServiceOffset;
+    return composeText.slice(0, nginxStart) + nginxBlock + composeText.slice(nginxEnd);
   }
 
   return composeText.slice(0, networkIndex) + nginxBlock + composeText.slice(networkIndex);

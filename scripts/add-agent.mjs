@@ -137,7 +137,8 @@ function findHighestDefault(pattern) {
 }
 
 // Gateway ports use odd numbers starting at 18791, bridge = gateway + 1
-const highestGateway = findHighestDefault(/:-(\d+)\}:18789/g) || 18789;
+const highestGateway =
+  findHighestDefault(/OPENCLAW_GATEWAY_PORT:\s*\$\{[A-Z0-9_]+:-(\d+)\}/g) || 18789;
 const nextGateway = highestGateway + 2;
 const nextBridge = nextGateway + 1;
 
@@ -268,13 +269,22 @@ compose = compose.replace(networkRe, block + eol + eol + networkMatch[0]);
 // ── 2. Add orchestrator mount for the new agent's config ────────────────────
 // Insert after the last existing /mounted-agents/ line
 const mountLine = `      - \${DATA_ROOT}/openclaw-${name}/.openclaw:/mounted-agents/${name}/.openclaw`;
-const mountPattern = /( +- \$\{DATA_ROOT\}\/openclaw-[^/]+\/\.openclaw:\/mounted-agents\/[^/]+\/\.openclaw\r?\n)(?!.*\/mounted-agents\/)/s;
-compose = compose.replace(mountPattern, `$1${mountLine}${eol}`);
+if (!compose.includes(mountLine)) {
+  const mountPattern = /( +- \$\{DATA_ROOT\}\/openclaw-[^/]+\/\.openclaw:\/mounted-agents\/[^/]+\/\.openclaw\r?\n)(?!.*\/mounted-agents\/)/s;
+  compose = compose.replace(mountPattern, `$1${mountLine}${eol}`);
+}
 
 // ── 3. Update PostgREST PGRST_DB_SCHEMAS ────────────────────────────────────
 compose = compose.replace(
-  /(PGRST_DB_SCHEMAS:\s*"[^"]*)/,
-  `$1,${schema}`
+  /(PGRST_DB_SCHEMAS:\s*")(.*?)"/,
+  (_, prefix, existingSchemas) => {
+    const schemas = existingSchemas
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!schemas.includes(schema)) schemas.push(schema);
+    return `${prefix}${schemas.join(",")}"`;
+  }
 );
 
 writeFileSync(COMPOSE, compose);
