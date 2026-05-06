@@ -9,7 +9,10 @@ if [ ! -d "$TARGET_PATH" ]; then
   exit 1
 fi
 
-MISMATCH="$(find "$TARGET_PATH" -xdev \( ! -uid "$TARGET_UID" -o ! -gid "$TARGET_GID" \) -print -quit 2>/dev/null)"
+MISMATCH="$(find "$TARGET_PATH" -xdev \( ! -user "$TARGET_UID" -o ! -group "$TARGET_GID" \) -print -quit)" || {
+  printf '%s\n' "[compose-files-permissions] failed to scan ownership under $TARGET_PATH" >&2
+  exit 1
+}
 if [ -z "$MISMATCH" ]; then
   printf '%s\n' "[compose-files-permissions] ownership already ${TARGET_UID}:${TARGET_GID}"
   exit 0
