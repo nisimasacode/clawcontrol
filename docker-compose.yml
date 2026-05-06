@@ -171,6 +171,23 @@ services:
     networks:
       - agent-net
 
+  # ───────────────────────────────────────────────────────────────────────────
+  #  PRESTART — Ensure orchestrator can write mounted compose repo
+  # ───────────────────────────────────────────────────────────────────────────
+  compose-files-permissions:
+    image: alpine:3.21
+    container_name: compose-files-permissions
+    restart: "no"
+    environment:
+      ORCHESTRATOR_UID: ${ORCHESTRATOR_UID:-1000}
+      ORCHESTRATOR_GID: ${ORCHESTRATOR_GID:-1000}
+    volumes:
+      - .:${COMPOSE_REPO_MOUNT_PATH:-/compose-files}
+    command:
+      - "${COMPOSE_REPO_MOUNT_PATH:-/compose-files}/scripts/ensure-compose-files-ownership.sh"
+      - "${COMPOSE_REPO_MOUNT_PATH:-/compose-files}"
+    networks:
+      - agent-net
   # ═══════════════════════════════════════════════════════════════════════════
   #  ORCHESTRATOR — The agent that manages the fleet
   # ═══════════════════════════════════════════════════════════════════════════
@@ -184,6 +201,8 @@ services:
         condition: service_healthy
       ob1-mcp-orchestrator:
         condition: service_started
+      compose-files-permissions:
+        condition: service_completed_successfully
     environment:
       HOME: /home/node
       TERM: xterm-256color
@@ -212,7 +231,7 @@ services:
       - ${DATA_ROOT}/openclaw-agent1/.openclaw:/mounted-agents/agent1/.openclaw
       - ${DATA_ROOT}/openclaw-agent2/.openclaw:/mounted-agents/agent2/.openclaw
       # Access to the compose stack (so the orchestrator can edit it)
-      - .:/compose-files
+      - .:${COMPOSE_REPO_MOUNT_PATH:-/compose-files}
       # Docker socket for running compose commands
       - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
@@ -225,8 +244,8 @@ services:
         test -f /home/node/.openclaw/openclaw.json || cp /seed/openclaw.json /home/node/.openclaw/openclaw.json
         node -e 'const fs=require("fs");const f="/home/node/.openclaw/openclaw.json";const j=JSON.parse(fs.readFileSync(f,"utf8"));const raw=process.env.OPENCLAW_GATEWAY_PORT ?? process.env.ORCHESTRATOR_GATEWAY_PORT;const p=Number(raw);if(!Number.isInteger(p)||p<1||p>65535){throw new Error("Invalid gateway port env value");}j.gateway={...(j.gateway||{}),port:p};fs.writeFileSync(f, JSON.stringify(j,null,2)+"\n");'
         mkdir -p /home/node/.openclaw/workspace
-        if [ -d /compose-files/workspace-seed/orchestrator ] && [ -z "$(ls -A /home/node/.openclaw/workspace 2>/dev/null)" ]; then
-          cp -a /compose-files/workspace-seed/orchestrator/. /home/node/.openclaw/workspace/
+        if [ -d ${COMPOSE_REPO_MOUNT_PATH:-/compose-files}/workspace-seed/orchestrator ] && [ -z "$(ls -A /home/node/.openclaw/workspace 2>/dev/null)" ]; then
+          cp -a ${COMPOSE_REPO_MOUNT_PATH:-/compose-files}/workspace-seed/orchestrator/. /home/node/.openclaw/workspace/
         fi
         exec node dist/index.js gateway --bind lan --port ${ORCHESTRATOR_GATEWAY_PORT:-18789}
     healthcheck:

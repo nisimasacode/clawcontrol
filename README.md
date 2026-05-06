@@ -324,6 +324,19 @@ With this setup, orchestrator can:
 - trigger compose workflows
 - manage fleet expansion using script-driven workflows
 
+### Orchestrator startup permission repair
+
+To prevent root-owned files from blocking orchestrator edits in the compose repo mount, a one-shot prestart service runs before `openclaw-orchestrator` starts.
+
+- service: `compose-files-permissions`
+- script: `scripts/ensure-compose-files-ownership.sh`
+- trigger: each `docker compose up` that includes `openclaw-orchestrator`
+- behavior: checks ownership under `${COMPOSE_REPO_MOUNT_PATH}` and runs `chown -R` only when a mismatch is detected
+
+Configurable variables:
+- `COMPOSE_REPO_MOUNT_PATH` (default: `/compose-files`)
+- `ORCHESTRATOR_UID` (default: `1000`)
+- `ORCHESTRATOR_GID` (default: `1000`)
 ### Orchestrator skills
 
 The orchestrator workspace includes reusable skills under `workspace-seed/orchestrator/skills`:
