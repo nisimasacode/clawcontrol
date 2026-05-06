@@ -223,6 +223,7 @@ services:
       - "-c"
       - |
         test -f /home/node/.openclaw/openclaw.json || cp /seed/openclaw.json /home/node/.openclaw/openclaw.json
+        node -e 'const fs=require("fs");const f="/home/node/.openclaw/openclaw.json";const j=JSON.parse(fs.readFileSync(f,"utf8"));const raw=process.env.OPENCLAW_GATEWAY_PORT ?? process.env.ORCHESTRATOR_GATEWAY_PORT;const p=Number(raw);if(!Number.isInteger(p)||p<1||p>65535){throw new Error("Invalid gateway port env value");}j.gateway={...(j.gateway||{}),port:p};fs.writeFileSync(f, JSON.stringify(j,null,2)+"\n");'
         mkdir -p /home/node/.openclaw/workspace
         if [ -d /compose-files/workspace-seed/orchestrator ] && [ -z "$(ls -A /home/node/.openclaw/workspace 2>/dev/null)" ]; then
           cp -a /compose-files/workspace-seed/orchestrator/. /home/node/.openclaw/workspace/
@@ -280,6 +281,7 @@ services:
       - "-c"
       - |
         test -f /home/node/.openclaw/openclaw.json || cp /seed/openclaw.json /home/node/.openclaw/openclaw.json
+        node -e 'const fs=require("fs");const f="/home/node/.openclaw/openclaw.json";const j=JSON.parse(fs.readFileSync(f,"utf8"));const raw=process.env.OPENCLAW_GATEWAY_PORT ?? process.env.ORCHESTRATOR_GATEWAY_PORT;const p=Number(raw);if(!Number.isInteger(p)||p<1||p>65535){throw new Error("Invalid gateway port env value");}j.gateway={...(j.gateway||{}),port:p};fs.writeFileSync(f, JSON.stringify(j,null,2)+"\n");'
         exec node dist/index.js gateway --bind lan --port ${AGENT1_GATEWAY_PORT:-18791}
     healthcheck:
       test:
@@ -347,6 +349,7 @@ services:
       - "-c"
       - |
         test -f /home/node/.openclaw/openclaw.json || cp /seed/openclaw.json /home/node/.openclaw/openclaw.json
+        node -e 'const fs=require("fs");const f="/home/node/.openclaw/openclaw.json";const j=JSON.parse(fs.readFileSync(f,"utf8"));const raw=process.env.OPENCLAW_GATEWAY_PORT ?? process.env.ORCHESTRATOR_GATEWAY_PORT;const p=Number(raw);if(!Number.isInteger(p)||p<1||p>65535){throw new Error("Invalid gateway port env value");}j.gateway={...(j.gateway||{}),port:p};fs.writeFileSync(f, JSON.stringify(j,null,2)+"\n");'
         exec node dist/index.js gateway --bind lan --port ${AGENT2_GATEWAY_PORT:-18793}
     healthcheck:
       test:

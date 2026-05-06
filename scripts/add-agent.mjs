@@ -216,6 +216,7 @@ ${browserEnabled ? `      BROWSER_CDP_URL: "http://chromium-${name}:9223"\n` : "
       - "-c"
       - |
         test -f /home/node/.openclaw/openclaw.json || cp /seed/openclaw.json /home/node/.openclaw/openclaw.json
+        node -e 'const fs=require("fs");const f="/home/node/.openclaw/openclaw.json";const j=JSON.parse(fs.readFileSync(f,"utf8"));const raw=process.env.OPENCLAW_GATEWAY_PORT ?? process.env.ORCHESTRATOR_GATEWAY_PORT;const p=Number(raw);if(!Number.isInteger(p)||p<1||p>65535){throw new Error("Invalid gateway port env value");}j.gateway={...(j.gateway||{}),port:p};fs.writeFileSync(f, JSON.stringify(j,null,2)+String.fromCharCode(10));'
         if [ -f /seed/auth-profiles.json ] && [ ! -f /home/node/.openclaw/agents/main/agent/auth-profiles.json ]; then
           mkdir -p /home/node/.openclaw/agents/main/agent
           cp /seed/auth-profiles.json /home/node/.openclaw/agents/main/agent/auth-profiles.json

@@ -14,6 +14,9 @@
       "rateLimit": {
         "maxAttempts": 10
       }
+    },
+    "remote": {
+      "url": "ws://127.0.0.1:${OPENCLAW_GATEWAY_PORT}"
     }
   },
   "browser": {
