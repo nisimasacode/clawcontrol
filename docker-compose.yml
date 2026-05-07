@@ -322,6 +322,8 @@ services:
       CHROME_CLI: "--remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 --remote-allow-origins=*"
       DISPLAY: ":1"
       START_DOCKER: "true"
+      PIXELFLUX_WAYLAND: "true"          # Much better performance + lower CPU (recommended)
+      MAX_RESOLUTION: "1920x1080"
     volumes:
       - ${DATA_ROOT}/chromium-agent1:/config:rw
     ports:
@@ -390,6 +392,8 @@ services:
       CHROME_CLI: "--remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 --remote-allow-origins=*"
       DISPLAY: ":1"
       START_DOCKER: "true"
+      PIXELFLUX_WAYLAND: "true"          # Much better performance + lower CPU (recommended)
+      MAX_RESOLUTION: "1920x1080"
     volumes:
       - ${DATA_ROOT}/chromium-agent2:/config:rw
     ports:

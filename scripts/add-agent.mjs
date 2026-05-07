@@ -245,6 +245,8 @@ const chromiumBlock = browserEnabled
       CHROME_CLI: "--remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 --remote-allow-origins=*"
       DISPLAY: ":1"
       START_DOCKER: "true"
+      PIXELFLUX_WAYLAND: "true"
+      MAX_RESOLUTION: "1920x1080"
     volumes:
       - \${DATA_ROOT}/chromium-${name}:/config:rw
     ports:
