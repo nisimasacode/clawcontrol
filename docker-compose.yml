@@ -13,8 +13,8 @@ x-openclaw-common: &openclaw-common
 
 x-chromium-common: &chromium-common
   build:
-    context: ./docker/chromium-socat
-  image: local/chromium-socat:latest
+    context: ./docker/chromium-cdp-proxy
+  image: local/chromium-cdp-proxy:latest
   restart: unless-stopped
   shm_size: 2gb
   networks:
