@@ -109,47 +109,26 @@ function renderNginxTemplate(agents) {
     throw new Error("No openclaw agents discovered in compose file");
   }
 
-  const defaultRoute = agents.includes("orchestrator") ? "orchestrator" : agents[0];
+  const defaultAgent = agents.includes("orchestrator") ? "orchestrator" : agents[0];
+  const defaultGatewayVar = gatewayVarForAgent(defaultAgent);
+  const defaultGatewayRef = `\${${defaultGatewayVar}}`;
 
-  const proxyBlocks = agents
+  const upstreamMap = agents
     .map((name) => {
-      const upstreamVar = `${name.replace(/-/g, "_")}_upstream`;
-      const varName = gatewayVarForAgent(name);
-      const varRef = `\${${varName}}`;
-      return `  location = /${name} {
-    set $${upstreamVar} http://openclaw-${name}:${varRef};
-    if ($http_upgrade = "") {
-      return 301 /${name}/;
-    }
-    rewrite ^ / break;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto https;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection $connection_upgrade;
-    proxy_pass $${upstreamVar};
-  }
-
-  location /${name}/ {
-    set $${upstreamVar} http://openclaw-${name}:${varRef};
-    rewrite ^/${name}/?(.*)$ /$1 break;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto https;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection $connection_upgrade;
-    proxy_pass $${upstreamVar};
-  }`;
+      const gatewayVar = gatewayVarForAgent(name);
+      const gatewayRef = `\${${gatewayVar}}`;
+      return `  ~^${name}\\. http://openclaw-${name}:${gatewayRef};`;
     })
-    .join("\n\n");
+    .join("\n");
 
   return `map $http_upgrade $connection_upgrade {
   default upgrade;
   '' close;
+}
+
+map $host $openclaw_upstream {
+  default http://openclaw-${defaultAgent}:${defaultGatewayRef};
+${upstreamMap}
 }
 
 resolver 127.0.0.11 valid=30s ipv6=off;
@@ -181,14 +160,20 @@ server {
   proxy_read_timeout 3600s;
   proxy_send_timeout 3600s;
 
-  location = / {
-    return 302 /${defaultRoute}/;
+  location / {
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_pass $openclaw_upstream;
   }
-
-${proxyBlocks}
 }
 `;
 }
+
 
 const agents = listOpenclawAgents(compose);
 if (agents.length === 0) {
