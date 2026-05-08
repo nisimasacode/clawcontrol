@@ -265,6 +265,9 @@ services:
     <<: *openclaw-common
     image: ${OPENCLAW_AGENT1_IMAGE:-ghcr.io/openclaw/openclaw:latest}
     container_name: openclaw-agent1
+    networks:
+      - agent-net
+      - agent1-browser-net
     depends_on:
       ob1-db:
         condition: service_healthy
@@ -314,6 +317,8 @@ services:
   chromium-agent1:
     <<: *chromium-common
     container_name: chromium-agent1
+    networks:
+      - agent1-browser-net
     environment:
       TZ: ${TZ:-Europe/Berlin}
       CUSTOM_HTTPS_PORT: 3001
@@ -335,6 +340,9 @@ services:
     <<: *openclaw-common
     image: ${OPENCLAW_AGENT2_IMAGE:-ghcr.io/openclaw/openclaw:latest}
     container_name: openclaw-agent2
+    networks:
+      - agent-net
+      - agent2-browser-net
     depends_on:
       ob1-db:
         condition: service_healthy
@@ -384,6 +392,8 @@ services:
   chromium-agent2:
     <<: *chromium-common
     container_name: chromium-agent2
+    networks:
+      - agent2-browser-net
     environment:
       TZ: ${TZ:-Europe/Berlin}
       CUSTOM_HTTPS_PORT: 3001
@@ -414,8 +424,15 @@ services:
     networks:
       - agent-net
 
+networks:
   agent-net:
     driver: bridge
+  agent1-browser-net:
+    driver: bridge
+    internal: true
+  agent2-browser-net:
+    driver: bridge
+    internal: true
 
 volumes:
   searxng-cache:

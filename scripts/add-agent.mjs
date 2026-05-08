@@ -117,6 +117,7 @@ if (shouldSeedAuthProfiles) {
 const envPrefix = name.toUpperCase().replace(/-/g, "_"); // RESEARCH_ASSISTANT
 const schema = name.replace(/-/g, "_"); // research_assistant
 const label = name.toUpperCase().replace(/-/g, " "); // RESEARCH ASSISTANT
+const browserNetwork = `${name}-browser-net`;
 
 // ── Read compose ────────────────────────────────────────────────────────────
 let compose = readFileSync(COMPOSE, "utf-8");
@@ -184,7 +185,9 @@ const agentBlock = `
     <<: *openclaw-common
     image: \${OPENCLAW_${envPrefix}_IMAGE:-ghcr.io/openclaw/openclaw:latest}
     container_name: openclaw-${name}
-    depends_on:
+    networks:
+      - agent-net
+${browserEnabled ? `      - ${browserNetwork}\n` : ""}    depends_on:
       ob1-db:
         condition: service_healthy
       ob1-mcp-${name}:
@@ -239,6 +242,8 @@ const chromiumBlock = browserEnabled
   chromium-${name}:
     <<: *chromium-common
     container_name: chromium-${name}
+    networks:
+      - ${browserNetwork}
     environment:
       TZ: \${TZ:-Europe/Berlin}
       CUSTOM_HTTPS_PORT: 3001
@@ -277,8 +282,24 @@ if (!compose.includes(mountLine)) {
   compose = compose.replace(mountPattern, `$1${mountLine}${eol}`);
 }
 
+// ── 3a. Ensure per-agent browser network exists in compose ───────────────────
+if (browserEnabled) {
+  const networkDef = `  ${browserNetwork}:`;
+  if (!compose.includes(networkDef)) {
+    const insertion = `${networkDef}${eol}    driver: bridge${eol}    internal: true${eol}`;
+    const volumesMarker = `${eol}volumes:${eol}`;
+    if (compose.includes(volumesMarker)) {
+      compose = compose.replace(volumesMarker, `${eol}${insertion}${eol}volumes:${eol}`);
+    } else {
+      console.error("Error: could not find volumes section in docker-compose.yml");
+      process.exit(1);
+    }
+  }
+}
+
 // ── 3. Update PostgREST PGRST_DB_SCHEMAS ────────────────────────────────────
 compose = compose.replace(
+
   /(PGRST_DB_SCHEMAS:\s*")(.*?)"/,
   (_, prefix, existingSchemas) => {
     const schemas = existingSchemas
