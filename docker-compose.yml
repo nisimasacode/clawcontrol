@@ -192,8 +192,14 @@ services:
 
   openclaw-orchestrator:
     <<: *openclaw-common
-    image: ${OPENCLAW_ORCHESTRATOR_IMAGE:-ghcr.io/openclaw/openclaw:latest}
+    build:
+      context: ./docker/openclaw-orchestrator
+      args:
+        BASE_IMAGE: ${OPENCLAW_ORCHESTRATOR_IMAGE:-ghcr.io/openclaw/openclaw:latest}
+    image: local/openclaw-orchestrator:latest
     container_name: openclaw-orchestrator
+    group_add:
+      - "${DOCKER_GID}"
     depends_on:
       ob1-db:
         condition: service_healthy

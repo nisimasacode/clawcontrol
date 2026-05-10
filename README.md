@@ -153,6 +153,7 @@ Then edit `.env` and set at minimum:
 - `POSTGRES_PASSWORD`
 - `PGRST_JWT_SECRET`
 - `DATA_ROOT`
+- `DOCKER_GID` (the group ID owning `/var/run/docker.sock` on your host)
 - gateway tokens (`ORCHESTRATOR_GATEWAY_TOKEN`, `AGENT1_GATEWAY_TOKEN`, `AGENT2_GATEWAY_TOKEN`)
 - OB1 MCP access keys (`ORCHESTRATOR_OB1_MCP_ACCESS_KEY`, `AGENT1_OB1_MCP_ACCESS_KEY`, `AGENT2_OB1_MCP_ACCESS_KEY`)
 - at least one model provider key (`OPENAI_API_KEY` or `ANTHROPIC_API_KEY`)
@@ -170,6 +171,20 @@ Or generate the per-agent OB1 MCP keys automatically:
 node scripts/generate-ob1-mcp-keys.mjs
 ```
 
+Get the Docker socket group ID from the host and put it into `.env` as `DOCKER_GID`:
+
+```bash
+stat -c '%g' /var/run/docker.sock
+```
+
+Example:
+
+```env
+DOCKER_GID=281
+```
+
+This is required because `openclaw-orchestrator` mounts `/var/run/docker.sock` and needs the host socket's group ID in order to use `docker`, `docker exec`, and `docker compose` from inside the orchestrator container.
+
 ## 3) HTTPS certificates for nginx
 
 This repository ships **dummy self-signed certs** for local/dev usage:
@@ -184,6 +199,8 @@ For production, replace both files with real certificates issued for your domain
 ```bash
 docker compose up -d
 ```
+
+This will build a small custom image for `openclaw-orchestrator` so the orchestrator can use the Docker CLI and Compose plugin inside the container.
 
 ## 5) Verify health
 
@@ -218,6 +235,7 @@ Important variables from `.env.example`:
 - Fleet/runtime
   - `DATA_ROOT`
   - `TZ`
+  - `DOCKER_GID`
 - Model providers
   - `OPENAI_API_KEY`
   - `ANTHROPIC_API_KEY`
@@ -317,10 +335,12 @@ Its mounts grant the ability to orchestrate:
 - worker config access: `/mounted-agents/<name>/.openclaw`
 - repository/compose access: `/compose-files`
 - Docker control path: `/var/run/docker.sock` (read-only mount)
+- Docker socket group access via `group_add: ["${DOCKER_GID}"]`
 
 With this setup, orchestrator can:
 - inspect and coordinate worker state
 - update seeded/runtime config files
+- run `docker`, `docker exec`, and `docker compose` from inside the container
 - trigger compose workflows
 - manage fleet expansion using script-driven workflows
 
@@ -337,6 +357,23 @@ Configurable variables:
 - `COMPOSE_REPO_MOUNT_PATH` (default: `/compose-files`)
 - `ORCHESTRATOR_UID` (default: `1000`)
 - `ORCHESTRATOR_GID` (default: `1000`)
+- `DOCKER_GID` (required: must match `stat -c '%g' /var/run/docker.sock` on the host)
+
+### Orchestrator Docker access
+
+`openclaw-orchestrator` is built from `docker/openclaw-orchestrator/Dockerfile`, which layers the Docker CLI and Docker Compose plugin on top of the base OpenClaw image selected by `OPENCLAW_ORCHESTRATOR_IMAGE`.
+
+The build arg is wired like this in Compose:
+
+```yaml
+build:
+  context: ./docker/openclaw-orchestrator
+  args:
+    BASE_IMAGE: ${OPENCLAW_ORCHESTRATOR_IMAGE:-ghcr.io/openclaw/openclaw:latest}
+```
+
+This keeps the orchestrator's runtime image customizable while still ensuring the extra Docker tooling is present.
+
 ### Orchestrator skills
 
 The orchestrator workspace includes reusable skills under `workspace-seed/orchestrator/skills`:
