@@ -192,6 +192,8 @@ ${browserEnabled ? `      - ${browserNetwork}\n` : ""}    depends_on:
         condition: service_healthy
       ob1-mcp-${name}:
         condition: service_started
+      openclaw-mount-permissions:
+        condition: service_completed_successfully
     environment:
       HOME: /home/node
       TERM: xterm-256color

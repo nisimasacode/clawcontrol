@@ -279,6 +279,8 @@ services:
         condition: service_healthy
       ob1-mcp-agent1:
         condition: service_started
+      openclaw-mount-permissions:
+        condition: service_completed_successfully
     environment:
       HOME: /home/node
       TERM: xterm-256color
@@ -356,6 +358,8 @@ services:
         condition: service_healthy
       ob1-mcp-agent2:
         condition: service_started
+      openclaw-mount-permissions:
+        condition: service_completed_successfully
     environment:
       HOME: /home/node
       TERM: xterm-256color
