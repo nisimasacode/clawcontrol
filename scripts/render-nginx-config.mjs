@@ -84,24 +84,30 @@ function buildNginxServiceBlock(composeText, agents, newline) {
 }
 
 function upsertNginxService(composeText, nginxBlock) {
-  const networkMarker = /^# =+\r?\n#  NETWORKS/m;
-  const networkMatch = composeText.match(networkMarker);
-  if (!networkMatch || networkMatch.index === undefined) {
-    throw new Error("Could not locate NETWORKS marker in docker-compose.yml");
-  }
-  const networkIndex = networkMatch.index;
+  const topLevelNetworksMatch = composeText.match(/^networks:\s*$/m);
+  const topLevelVolumesMatch = composeText.match(/^volumes:\s*$/m);
+  const sectionIndexes = [
+    topLevelNetworksMatch?.index,
+    topLevelVolumesMatch?.index,
+  ].filter((index) => index !== undefined);
 
+  if (sectionIndexes.length === 0) {
+    throw new Error("Could not locate top-level networks or volumes section in docker-compose.yml");
+  }
+
+  const sectionIndex = Math.min(...sectionIndexes);
   const nginxMatch = composeText.match(/^  openclaw-nginx:\r?\n/m);
-  if (nginxMatch && nginxMatch.index !== undefined && nginxMatch.index < networkIndex) {
+
+  if (nginxMatch && nginxMatch.index !== undefined && nginxMatch.index < sectionIndex) {
     const nginxStart = nginxMatch.index;
     const nginxHeaderEnd = nginxStart + nginxMatch[0].length;
     const afterNginx = composeText.slice(nginxHeaderEnd);
     const nextServiceOffset = afterNginx.search(/^  [a-z0-9][a-z0-9-]*:\r?\n/m);
-    const nginxEnd = nextServiceOffset === -1 ? networkIndex : nginxHeaderEnd + nextServiceOffset;
+    const nginxEnd = nextServiceOffset === -1 ? sectionIndex : nginxHeaderEnd + nextServiceOffset;
     return composeText.slice(0, nginxStart) + nginxBlock + composeText.slice(nginxEnd);
   }
 
-  return composeText.slice(0, networkIndex) + nginxBlock + composeText.slice(networkIndex);
+  return composeText.slice(0, sectionIndex) + nginxBlock + composeText.slice(sectionIndex);
 }
 
 function renderNginxTemplate(agents) {

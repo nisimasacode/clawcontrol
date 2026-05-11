@@ -263,18 +263,21 @@ const chromiumBlock = browserEnabled
 
 const serviceBlock = `${ob1McpBlock}${agentBlock}${chromiumBlock}`;
 
-// ── 1. Insert agent block before the NETWORKS section ───────────────────────
+// ── 1. Insert agent block before top-level networks/volumes section ──────────
 // Detect line ending style used in the file
 const eol = compose.includes("\r\n") ? "\r\n" : "\n";
-const networkRe = /^# =+\r?\n#  NETWORKS/m;
-const networkMatch = compose.match(networkRe);
-if (!networkMatch) {
-  console.error("Error: could not find NETWORKS marker in docker-compose.yml");
-  process.exit(1);
-}
+const topLevelNetworksRe = /^networks:\s*$/m;
+const topLevelVolumesRe = /^volumes:\s*$/m;
 // Normalise the generated block to the file's line-ending style
 const block = serviceBlock.trimEnd().replace(/\r?\n/g, eol);
-compose = compose.replace(networkRe, block + eol + eol + networkMatch[0]);
+if (topLevelNetworksRe.test(compose)) {
+  compose = compose.replace(topLevelNetworksRe, `${block}${eol}${eol}networks:`);
+} else if (topLevelVolumesRe.test(compose)) {
+  compose = compose.replace(topLevelVolumesRe, `${block}${eol}${eol}volumes:`);
+} else {
+  console.error("Error: could not find top-level networks or volumes section in docker-compose.yml");
+  process.exit(1);
+}
 
 // ── 2. Add orchestrator mount for the new agent's config ────────────────────
 // Insert after the last existing /mounted-agents/ line
