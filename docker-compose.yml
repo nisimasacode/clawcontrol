@@ -180,6 +180,7 @@ services:
       DATA_ROOT: ${DATA_ROOT:-}
     volumes:
       - .:${COMPOSE_REPO_MOUNT_PATH:-/compose-files}
+      - ${DATA_ROOT}:${DATA_ROOT}
     command:
       - "node"
       - "${COMPOSE_REPO_MOUNT_PATH:-/compose-files}/scripts/openclaw-mount-permissions.mjs"
