@@ -141,7 +141,7 @@ function renderNginxTemplate(openclawAgents, chromiumAgents) {
     .join("\n");
 
   const chromiumUpstreamMap = chromiumAgents
-    .map((name) => `  ~^chromium-${name}\\. http://chromium-${name}:3001;`)
+    .map((name) => `  ~^chromium-${name}\\. https://chromium-${name}:3001;`)
     .join("\n");
 
   const upstreamMap = [openclawUpstreamMap, chromiumUpstreamMap].filter(Boolean).join("\n");
