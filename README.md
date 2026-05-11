@@ -348,15 +348,13 @@ With this setup, orchestrator can:
 
 To prevent root-owned files from blocking orchestrator edits in the compose repo mount, a one-shot prestart service runs before `openclaw-orchestrator` starts.
 
-- service: `compose-files-permissions`
-- script: `scripts/ensure-compose-files-ownership.sh`
+- service: `openclaw-mount-permissions`
+- script: `scripts/openclaw-mount-permissions.mjs`
 - trigger: each `docker compose up` that includes `openclaw-orchestrator`
-- behavior: checks ownership under `${COMPOSE_REPO_MOUNT_PATH}` and runs `chown -R` only when a mismatch is detected
+- behavior: checks ownership for host mount sources used by `openclaw-*` services and runs `chown -R` only when a mismatch is detected
 
 Configurable variables:
 - `COMPOSE_REPO_MOUNT_PATH` (default: `/compose-files`)
-- `ORCHESTRATOR_UID` (default: `1000`)
-- `ORCHESTRATOR_GID` (default: `1000`)
 - `DOCKER_GID` (required: must match `stat -c '%g' /var/run/docker.sock` on the host)
 
 ### Orchestrator Docker access

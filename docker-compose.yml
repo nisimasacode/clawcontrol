@@ -170,19 +170,19 @@ services:
       - agent-net
 
   # ───────────────────────────────────────────────────────────────────────────
-  #  PRESTART — Ensure orchestrator can write mounted compose repo
+  #  PRESTART — Ensure openclaw mount ownership
   # ───────────────────────────────────────────────────────────────────────────
-  compose-files-permissions:
-    image: alpine:3.21
-    container_name: compose-files-permissions
+  openclaw-mount-permissions:
+    image: node:22-alpine
+    container_name: openclaw-mount-permissions
     restart: "no"
     environment:
-      ORCHESTRATOR_UID: ${ORCHESTRATOR_UID:-1000}
-      ORCHESTRATOR_GID: ${ORCHESTRATOR_GID:-1000}
+      DATA_ROOT: ${DATA_ROOT:-}
     volumes:
       - .:${COMPOSE_REPO_MOUNT_PATH:-/compose-files}
     command:
-      - "${COMPOSE_REPO_MOUNT_PATH:-/compose-files}/scripts/ensure-compose-files-ownership.sh"
+      - "node"
+      - "${COMPOSE_REPO_MOUNT_PATH:-/compose-files}/scripts/openclaw-mount-permissions.mjs"
       - "${COMPOSE_REPO_MOUNT_PATH:-/compose-files}"
     networks:
       - agent-net
@@ -205,7 +205,7 @@ services:
         condition: service_healthy
       ob1-mcp-orchestrator:
         condition: service_started
-      compose-files-permissions:
+      openclaw-mount-permissions:
         condition: service_completed_successfully
     environment:
       HOME: /home/node
