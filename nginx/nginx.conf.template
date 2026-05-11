@@ -8,6 +8,8 @@ map $host $openclaw_upstream {
   ~^orchestrator\. http://openclaw-orchestrator:${ORCHESTRATOR_GATEWAY_PORT};
   ~^agent1\. http://openclaw-agent1:${AGENT1_GATEWAY_PORT};
   ~^agent2\. http://openclaw-agent2:${AGENT2_GATEWAY_PORT};
+  ~^chromium-agent1\. http://chromium-agent1:3001;
+  ~^chromium-agent2\. http://chromium-agent2:3001;
 }
 
 resolver 127.0.0.11 valid=30s ipv6=off;

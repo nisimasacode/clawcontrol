@@ -24,14 +24,25 @@ const NGINX_TEMPLATE = resolve(NGINX_DIR, "nginx.conf.template");
 const compose = readFileSync(COMPOSE, "utf-8");
 const eol = compose.includes("\r\n") ? "\r\n" : "\n";
 
-function listOpenclawAgents(composeText) {
-  const agents = [...composeText.matchAll(/container_name:\s*openclaw-([a-z0-9-]+)/g)].map((m) => m[1]);
-  const unique = [...new Set(agents)].filter((name) => name !== "nginx");
+function sortAgents(agents) {
+  const unique = [...new Set(agents)];
   return unique.sort((a, b) => {
     if (a === "orchestrator") return -1;
     if (b === "orchestrator") return 1;
     return a.localeCompare(b);
   });
+}
+
+function listOpenclawAgents(composeText) {
+  const agents = [...composeText.matchAll(/container_name:\s*openclaw-([a-z0-9-]+)/g)]
+    .map((m) => m[1])
+    .filter((name) => name !== "nginx");
+  return sortAgents(agents);
+}
+
+function listChromiumAgents(composeText) {
+  const agents = [...composeText.matchAll(/container_name:\s*chromium-([a-z0-9-]+)/g)].map((m) => m[1]);
+  return sortAgents(agents);
 }
 
 function gatewayVarForAgent(name) {
@@ -56,12 +67,14 @@ function gatewayDefaultForAgent(composeText, name) {
   return "18789";
 }
 
-function buildNginxServiceBlock(composeText, agents, newline) {
-  const envLines = agents.map((name) => {
+function buildNginxServiceBlock(composeText, openclawAgents, chromiumAgents, newline) {
+  const envLines = openclawAgents.map((name) => {
     const varName = gatewayVarForAgent(name);
     const defaultPort = gatewayDefaultForAgent(composeText, name);
     return `      ${varName}: \${${varName}:-${defaultPort}}`;
   });
+
+  const networkLines = ["      - agent-net", ...chromiumAgents.map((name) => `      - ${name}-browser-net`)];
 
   return [
     "  openclaw-nginx:",
@@ -77,7 +90,7 @@ function buildNginxServiceBlock(composeText, agents, newline) {
     "      - ./nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro",
     "      - ./nginx/certs:/etc/nginx/certs:ro",
     "    networks:",
-    "      - agent-net",
+    ...networkLines,
     "",
     "",
   ].join(newline);
@@ -101,8 +114,8 @@ function upsertNginxService(composeText, nginxBlock) {
   if (nginxMatch && nginxMatch.index !== undefined && nginxMatch.index < sectionIndex) {
     const nginxStart = nginxMatch.index;
     const nginxHeaderEnd = nginxStart + nginxMatch[0].length;
-    const afterNginx = composeText.slice(nginxHeaderEnd);
-    const nextServiceOffset = afterNginx.search(/^  [a-z0-9][a-z0-9-]*:\r?\n/m);
+    const servicesTail = composeText.slice(nginxHeaderEnd, sectionIndex);
+    const nextServiceOffset = servicesTail.search(/^  [a-z0-9][a-z0-9-]*:\r?\n/m);
     const nginxEnd = nextServiceOffset === -1 ? sectionIndex : nginxHeaderEnd + nextServiceOffset;
     return composeText.slice(0, nginxStart) + nginxBlock + composeText.slice(nginxEnd);
   }
@@ -110,22 +123,28 @@ function upsertNginxService(composeText, nginxBlock) {
   return composeText.slice(0, sectionIndex) + nginxBlock + composeText.slice(sectionIndex);
 }
 
-function renderNginxTemplate(agents) {
-  if (agents.length === 0) {
+function renderNginxTemplate(openclawAgents, chromiumAgents) {
+  if (openclawAgents.length === 0) {
     throw new Error("No openclaw agents discovered in compose file");
   }
 
-  const defaultAgent = agents.includes("orchestrator") ? "orchestrator" : agents[0];
+  const defaultAgent = openclawAgents.includes("orchestrator") ? "orchestrator" : openclawAgents[0];
   const defaultGatewayVar = gatewayVarForAgent(defaultAgent);
   const defaultGatewayRef = `\${${defaultGatewayVar}}`;
 
-  const upstreamMap = agents
+  const openclawUpstreamMap = openclawAgents
     .map((name) => {
       const gatewayVar = gatewayVarForAgent(name);
       const gatewayRef = `\${${gatewayVar}}`;
       return `  ~^${name}\\. http://openclaw-${name}:${gatewayRef};`;
     })
     .join("\n");
+
+  const chromiumUpstreamMap = chromiumAgents
+    .map((name) => `  ~^chromium-${name}\\. http://chromium-${name}:3001;`)
+    .join("\n");
+
+  const upstreamMap = [openclawUpstreamMap, chromiumUpstreamMap].filter(Boolean).join("\n");
 
   return `map $http_upgrade $connection_upgrade {
   default upgrade;
@@ -181,13 +200,14 @@ server {
 }
 
 
-const agents = listOpenclawAgents(compose);
-if (agents.length === 0) {
+const openclawAgents = listOpenclawAgents(compose);
+if (openclawAgents.length === 0) {
   console.error("Error: no openclaw-* services were found in docker-compose.yml");
   process.exit(1);
 }
 
-const nginxServiceBlock = buildNginxServiceBlock(compose, agents, eol);
+const chromiumAgents = listChromiumAgents(compose);
+const nginxServiceBlock = buildNginxServiceBlock(compose, openclawAgents, chromiumAgents, eol);
 const nextCompose = upsertNginxService(compose, nginxServiceBlock);
 if (nextCompose !== compose) {
   writeFileSync(COMPOSE, nextCompose);
@@ -197,6 +217,6 @@ if (nextCompose !== compose) {
 }
 
 mkdirSync(NGINX_DIR, { recursive: true });
-const template = renderNginxTemplate(agents).replace(/\n/g, eol);
+const template = renderNginxTemplate(openclawAgents, chromiumAgents).replace(/\n/g, eol);
 writeFileSync(NGINX_TEMPLATE, template);
 console.log("✓ nginx/nginx.conf.template regenerated");

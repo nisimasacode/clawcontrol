@@ -433,6 +433,8 @@ services:
       - ./nginx/certs:/etc/nginx/certs:ro
     networks:
       - agent-net
+      - agent1-browser-net
+      - agent2-browser-net
 
 networks:
   agent-net:
