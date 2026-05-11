@@ -246,6 +246,8 @@ const chromiumBlock = browserEnabled
       - ${browserNetwork}
     environment:
       TZ: \${TZ:-Europe/Berlin}
+      PUID: 1000
+      PGID: 1000
       CUSTOM_HTTPS_PORT: 3001
       CHROME_CLI: "--remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 --remote-allow-origins=*"
       DISPLAY: ":1"

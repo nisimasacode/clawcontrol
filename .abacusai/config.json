@@ -7,7 +7,8 @@
       "Bash(try { Get-Command gh 2>&1 } catch { echo \"Error: $($_.Exception.Message)\" })",
       "Bash(powershell *)",
       "Bash(node scripts/render-nginx-config.mjs 2>& *)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(node scripts/add-agent.mjs --name testpuid --browser true 2>&1 || true)"
     ]
   }
 }
