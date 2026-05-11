@@ -293,7 +293,7 @@ if (!compose.includes(mountLine)) {
 if (browserEnabled) {
   const networkDef = `  ${browserNetwork}:`;
   if (!compose.includes(networkDef)) {
-    const insertion = `${networkDef}${eol}    driver: bridge${eol}    internal: true${eol}`;
+    const insertion = `${networkDef}${eol}    driver: bridge${eol}`;
     const volumesMarker = `${eol}volumes:${eol}`;
     if (compose.includes(volumesMarker)) {
       compose = compose.replace(volumesMarker, `${eol}${insertion}${eol}volumes:${eol}`);
