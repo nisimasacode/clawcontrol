@@ -18,3 +18,8 @@ If action is needed, perform it or report blocked status with reason.
 ## Notes
 - Avoid repeating unchanged work every heartbeat.
 - Prefer compact, high-signal checks.
+- If a heartbeat task uses the browser tool, use the agent's configured default browser path first.
+- Do not set browser `target` or `profile` explicitly unless the task truly requires a non-default environment.
+- Do not guess between `host`, `sandbox`, or `node` as fallback targets.
+- If needed, check browser availability with browser status using defaults.
+- If browser access is blocked, report the exact blocker instead of trying alternate browser targets blindly.

@@ -24,9 +24,12 @@ Before substantive work:
 - If OB1 is unavailable, state that explicitly and use file memory as fallback.
 
 ## Required Browser Automation Rules
-- Use the browser profile defined in `TOOLS.md`.
-- Use the CDP endpoint defined in `TOOLS.md`.
+- Use the browser tool via the agent's configured default browser profile first.
+- Prefer no explicit browser `target` and no explicit `profile` unless a task specifically requires them.
+- Treat `openclaw.json` as the source of truth for browser wiring.
+- Use workspace files to describe browser intent and fallback behavior, not to manually chase CDP targets during normal browser-tool calls.
 - Do not assume local browser availability when remote/sidecar browser is configured.
+- Only use `host`, `sandbox`, or `node` when the task explicitly calls for that environment.
 - If browser configuration is missing, ask for it before automation tasks.
 
 ## Safety and Approval Rules

@@ -111,6 +111,10 @@ invent persona details, tools, or user facts — ask or infer them from context.
   - Ordered list of checks (3–8 items max)
   - Clear "done condition" for each item
   - Any data files to read or produce
+- **For browser-capable workers:**
+  - Instruct the agent to use the browser tool's configured default path first
+  - Prefer no explicit browser `target` or `profile` unless the task truly requires a non-default environment
+  - If blocked, report the exact blocker instead of guessing between `host`, `sandbox`, or `node`
 
 ### `BOOT.md` (optional)
 - **Purpose:** Startup checklist run on gateway restart (when internal hooks are enabled).
@@ -183,8 +187,9 @@ When bootstrapping a new agent's workspace:
 1. **Read the current files** before overwriting anything.
 2. **Update AGENTS.md** when rules or workflows change.
 3. **Update USER.md** when the user's context or preferences change.
-4. **Rotate memory** — archive old `memory/` entries, update `MEMORY.md` if curated.
-5. **Never delete** `SOUL.md` or `IDENTITY.md` without explicit confirmation.
+4. For browser-capable workers, keep browser instructions aligned across `AGENTS.md` and `HEARTBEAT.md`: default browser path first, no guessed `host`/`sandbox`/`node` fallback hopping.
+5. **Rotate memory** — archive old `memory/` entries, update `MEMORY.md` if curated.
+6. **Never delete** `SOUL.md` or `IDENTITY.md` without explicit confirmation.
 
 ## Quality checks
 
@@ -194,5 +199,6 @@ Before handing off:
 - [ ] `AGENTS.md` explicitly states OB1 is primary durable memory and includes OB1 startup/fallback behavior
 - [ ] `AGENTS.md` includes a web-search rule: use `searxng` first and `web_search` only if Searxng is unavailable
 - [ ] `HEARTBEAT.md` is concise (< 300 words)
+- [ ] For browser-capable workers, `AGENTS.md` and `HEARTBEAT.md` tell the agent to use the configured default browser path first and avoid guessed `host`/`sandbox`/`node` fallback switching
 - [ ] No credentials or API keys are written into workspace files
 - [ ] `BOOTSTRAP.md` (if written) instructs the agent to delete it after first run
