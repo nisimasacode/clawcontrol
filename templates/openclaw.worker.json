@@ -105,5 +105,18 @@
         "enabled": true
       }
     }
+  },
+  "messages": {
+    "tts": {
+      "auto": "inbound",
+      "provider": "openai",
+      "providers": {
+        "openai": {
+          "apiKey": "$OPENAI_API_KEY",
+          "model": "tts-1",
+          "voice": "onyx"
+        }
+      }
+    }
   }
 }
