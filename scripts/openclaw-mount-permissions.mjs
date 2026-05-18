@@ -86,6 +86,7 @@ function hasOwnershipMismatch(path) {
     const entries = readdirSync(current, { withFileTypes: true });
     for (const entry of entries) {
       const fullPath = resolve(current, entry.name);
+      if (!existsSync(fullPath)) continue;
       const info = statSync(fullPath);
       if (info.uid !== targetUid || info.gid !== targetGid) return true;
       if (entry.isDirectory()) stack.push(fullPath);
@@ -95,6 +96,10 @@ function hasOwnershipMismatch(path) {
 }
 
 function applyOwnership(path) {
+  if (!existsSync(path)) {
+    console.log(`${prefix} skipping missing path: ${path}`);
+    return;
+  }
   const isDir = statSync(path).isDirectory();
   const args = isDir ? ["-R", `${targetUid}:${targetGid}`, path] : [`${targetUid}:${targetGid}`, path];
   execFileSync("chown", args, { stdio: "inherit" });
