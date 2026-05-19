@@ -59,13 +59,17 @@
       "enabled": true,
       "dmPolicy": "pairing",
       "groupPolicy": "allowlist",
-      "streaming": "partial",
+      "streaming": {
+        "mode": "partial"
+      },
       "accounts": {
         "main": {
           "dmPolicy": "pairing",
           "botToken": "${TELEGRAM_BOT_TOKEN}",
           "groupPolicy": "allowlist",
-          "streaming": "partial"
+          "streaming": {
+            "mode": "partial"
+          }
         }
       }
     }
@@ -105,5 +109,10 @@
         }
       }
     }
+  },
+  "commands": {
+    "ownerAllowFrom": [
+      "telegram:${TELEGRAM_OWNER_ID}"
+    ]
   }
 }

@@ -15,6 +15,7 @@
         "maxAttempts": 10
       }
     },
+    "port": "${OPENCLAW_GATEWAY_PORT}",
     "remote": {
       "url": "ws://127.0.0.1:${OPENCLAW_GATEWAY_PORT}"
     }
@@ -104,5 +105,23 @@
         "enabled": true
       }
     }
+  },
+  "messages": {
+    "tts": {
+      "auto": "inbound",
+      "provider": "openai",
+      "providers": {
+        "openai": {
+          "apiKey": "$OPENAI_API_KEY",
+          "model": "tts-1",
+          "voice": "onyx"
+        }
+      }
+    }
+  },
+  "commands": {
+    "ownerAllowFrom": [
+      "telegram:${TELEGRAM_OWNER_ID}"
+    ]
   }
 }

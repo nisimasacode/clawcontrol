@@ -17,7 +17,8 @@
     },
     "remote": {
       "url": "ws://127.0.0.1:${ORCHESTRATOR_GATEWAY_PORT}"
-    }
+    },
+    "port": "${ORCHESTRATOR_GATEWAY_PORT}"
   },
   "browser": {
     "enabled": false
@@ -91,5 +92,23 @@
         "enabled": true
       }
     }
+  },
+  "messages": {
+    "tts": {
+      "auto": "inbound",
+      "provider": "openai",
+      "providers": {
+        "openai": {
+          "apiKey": "$OPENAI_API_KEY",
+          "model": "tts-1",
+          "voice": "onyx"
+        }
+      }
+    }
+  },
+  "commands": {
+    "ownerAllowFrom": [
+      "telegram:${TELEGRAM_OWNER_ID}"
+    ]
   }
 }

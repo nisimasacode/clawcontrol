@@ -9,7 +9,9 @@
       "Bash(node scripts/render-nginx-config.mjs 2>& *)",
       "Bash(node *)",
       "Bash(node scripts/add-agent.mjs --name testpuid --browser true 2>&1 || true)",
-      "Bash(cmd *)"
+      "Bash(cmd *)",
+      "Bash(node scripts/render-configs.mjs 2>&1 || true)",
+      "Bash(node scripts/render-configs.mjs 2>&1 || true)"
     ]
   }
 }
