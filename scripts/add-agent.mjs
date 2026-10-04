@@ -198,9 +198,11 @@ ${browserEnabled ? `      - ${browserNetwork}\n` : ""}    depends_on:
       HOME: /home/node
       TERM: xterm-256color
       TZ: \${TZ:-Europe/Berlin}
+      PATH: /home/node/.openclaw/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       OPENCLAW_GATEWAY_TOKEN: \${${envPrefix}_GATEWAY_TOKEN:-}
       OPENCLAW_GATEWAY_PORT: \${${envPrefix}_GATEWAY_PORT:-${nextGateway}}
       TELEGRAM_BOT_TOKEN: \${${envPrefix}_TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_OWNER_ID: \${TELEGRAM_OWNER_ID:-}
       OPENAI_API_KEY: \${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: \${ANTHROPIC_API_KEY:-}
       OPENROUTER_API_KEY: \${OPENROUTER_API_KEY:-}
@@ -212,6 +214,7 @@ ${browserEnabled ? `      - ${browserNetwork}\n` : ""}    depends_on:
 ${browserEnabled ? `      BROWSER_CDP_URL: "http://chromium-${name}:9223"\n` : ""}    volumes:
       - \${DATA_ROOT}/openclaw-${name}/.openclaw:/home/node/.openclaw
       - \${DATA_ROOT}/openclaw-${name}/workspace:/home/node/.openclaw/workspace
+      - \${DATA_ROOT}/openclaw-${name}/config:/home/node/.config
       - ./configs/${name}:/seed:ro
     ports:
       - "\${${envPrefix}_GATEWAY_PORT:-${nextGateway}}:\${${envPrefix}_GATEWAY_PORT:-${nextGateway}}"
@@ -222,10 +225,6 @@ ${browserEnabled ? `      BROWSER_CDP_URL: "http://chromium-${name}:9223"\n` : "
       - |
         test -f /home/node/.openclaw/openclaw.json || cp /seed/openclaw.json /home/node/.openclaw/openclaw.json
         node -e 'const fs=require("fs");const f="/home/node/.openclaw/openclaw.json";const j=JSON.parse(fs.readFileSync(f,"utf8"));const raw=process.env.OPENCLAW_GATEWAY_PORT ?? process.env.ORCHESTRATOR_GATEWAY_PORT;const p=Number(raw);if(!Number.isInteger(p)||p<1||p>65535){throw new Error("Invalid gateway port env value");}j.gateway={...(j.gateway||{}),port:p};fs.writeFileSync(f, JSON.stringify(j,null,2)+String.fromCharCode(10));'
-        if [ -f /seed/auth-profiles.json ] && [ ! -f /home/node/.openclaw/agents/main/agent/auth-profiles.json ]; then
-          mkdir -p /home/node/.openclaw/agents/main/agent
-          cp /seed/auth-profiles.json /home/node/.openclaw/agents/main/agent/auth-profiles.json
-        fi
         exec node dist/index.js gateway --bind lan --port \${${envPrefix}_GATEWAY_PORT:-${nextGateway}}
     healthcheck:
       test:
@@ -255,7 +254,15 @@ const chromiumBlock = browserEnabled
       DISPLAY: ":1"
       START_DOCKER: "true"
       PIXELFLUX_WAYLAND: "true"
-      MAX_RESOLUTION: "1920x1080"
+      SELKIES_MANUAL_WIDTH: "1280"
+      SELKIES_MANUAL_HEIGHT: "720"
+      SELKIES_SCALING_DPI: "96"
+      SELKIES_FRAMERATE: "24"
+      SELKIES_AUDIO_ENABLED: "false"
+      SELKIES_MICROPHONE_ENABLED: "false"
+      SELKIES_GAMEPAD_ENABLED: "false"
+      SELKIES_CLIPBOARD_ENABLED: "false"
+      SELKIES_MODE: "webrtc"
     volumes:
       - \${DATA_ROOT}/chromium-${name}:/config:rw
     ports:

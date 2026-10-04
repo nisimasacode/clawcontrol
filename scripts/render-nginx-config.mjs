@@ -36,7 +36,7 @@ function sortAgents(agents) {
 function listOpenclawAgents(composeText) {
   const agents = [...composeText.matchAll(/container_name:\s*openclaw-([a-z0-9-]+)/g)]
     .map((m) => m[1])
-    .filter((name) => name !== "nginx");
+    .filter((name) => !["nginx", "mount-permissions"].includes(name));
   return sortAgents(agents);
 }
 
@@ -50,28 +50,55 @@ function gatewayVarForAgent(name) {
   return `${name.toUpperCase().replace(/-/g, "_")}_GATEWAY_PORT`;
 }
 
-function gatewayDefaultForAgent(composeText, name) {
-  const varName = gatewayVarForAgent(name);
+function bridgeVarForAgent(name) {
+  if (name === "orchestrator") return "ORCHESTRATOR_BRIDGE_PORT";
+  return `${name.toUpperCase().replace(/-/g, "_")}_BRIDGE_PORT`;
+}
+
+function portDefaultForAgent(composeText, name, kind) {
+  const varName = kind === "bridge" ? bridgeVarForAgent(name) : gatewayVarForAgent(name);
   const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\$&");
   const escapedVarName = varName.replace(/[.*+?^${}()|[\]\\]/g, "\$&");
-  const scopedRe = new RegExp(
-    `openclaw-${escapedName}:[\\s\\S]*?OPENCLAW_GATEWAY_PORT:\\s*\\$\\{${escapedVarName}:-([0-9]+)\\}`
-  );
-  const scoped = composeText.match(scopedRe);
-  if (scoped) return scoped[1];
+
+  if (kind === "gateway") {
+    const scopedRe = new RegExp(
+      `openclaw-${escapedName}:[\\s\\S]*?OPENCLAW_GATEWAY_PORT:\\s*\\$\\{${escapedVarName}:-([0-9]+)\\}`
+    );
+    const scoped = composeText.match(scopedRe);
+    if (scoped) return scoped[1];
+  } else {
+    const scopedRe = new RegExp(
+      `openclaw-${escapedName}:[\\s\\S]*?${escapedVarName}:-([0-9]+)`
+    );
+    const scoped = composeText.match(scopedRe);
+    if (scoped) return scoped[1];
+  }
 
   const re = new RegExp(`\\$\\{${escapedVarName}:-([0-9]+)\\}`);
   const m = composeText.match(re);
   if (m) return m[1];
 
-  return "18789";
+  return kind === "bridge" ? "18790" : "18789";
+}
+
+function gatewayDefaultForAgent(composeText, name) {
+  return portDefaultForAgent(composeText, name, "gateway");
+}
+
+function bridgeDefaultForAgent(composeText, name) {
+  return portDefaultForAgent(composeText, name, "bridge");
 }
 
 function buildNginxServiceBlock(composeText, openclawAgents, chromiumAgents, newline) {
-  const envLines = openclawAgents.map((name) => {
-    const varName = gatewayVarForAgent(name);
-    const defaultPort = gatewayDefaultForAgent(composeText, name);
-    return `      ${varName}: \${${varName}:-${defaultPort}}`;
+  const envLines = openclawAgents.flatMap((name) => {
+    const gatewayVar = gatewayVarForAgent(name);
+    const bridgeVar = bridgeVarForAgent(name);
+    const gatewayDefault = gatewayDefaultForAgent(composeText, name);
+    const bridgeDefault = bridgeDefaultForAgent(composeText, name);
+    return [
+      `      ${gatewayVar}: \${${gatewayVar}:-${gatewayDefault}}`,
+      `      ${bridgeVar}: \${${bridgeVar}:-${bridgeDefault}}`,
+    ];
   });
 
   const networkLines = ["      - agent-net", ...chromiumAgents.map((name) => `      - ${name}-browser-net`)];
@@ -133,10 +160,15 @@ function renderNginxTemplate(openclawAgents, chromiumAgents) {
   const defaultGatewayRef = `\${${defaultGatewayVar}}`;
 
   const openclawUpstreamMap = openclawAgents
-    .map((name) => {
+    .flatMap((name) => {
       const gatewayVar = gatewayVarForAgent(name);
+      const bridgeVar = bridgeVarForAgent(name);
       const gatewayRef = `\${${gatewayVar}}`;
-      return `  ~^${name}\\. http://openclaw-${name}:${gatewayRef};`;
+      const bridgeRef = `\${${bridgeVar}}`;
+      return [
+        `  ~^${name}\\. http://openclaw-${name}:${gatewayRef};`,
+        `  ~^sandbox-${name}\\. http://openclaw-${name}:${bridgeRef};`,
+      ];
     })
     .join("\n");
 

@@ -25,7 +25,7 @@ const compose = readFileSync(COMPOSE, "utf-8");
 
 // Find all openclaw-<name> services (container_name lines)
 const agents = [...new Set([...compose.matchAll(/container_name:\s*openclaw-([a-z0-9-]+)/g)].map((m) => m[1]))]
-  .filter((name) => name !== "nginx");
+  .filter((name) => !["nginx", "mount-permissions"].includes(name));
 
 let count = 0;
 for (const name of agents) {

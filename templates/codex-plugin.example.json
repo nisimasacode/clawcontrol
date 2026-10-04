@@ -1,0 +1,14 @@
+{
+  "_comment": "Optional Codex plugin snippet. Merge under plugins.entries in an agent openclaw.json if you use the Codex harness. Not enabled by default.",
+  "codex": {
+    "enabled": true,
+    "config": {
+      "appServer": {
+        "clearEnv": [
+          "CODEX_API_KEY",
+          "OPENAI_API_KEY"
+        ]
+      }
+    }
+  }
+}

@@ -59,13 +59,13 @@ PostgREST exposes all agent schemas via REST at `OB1_REST_PORT` (default 3100). 
 
 ### Seed config pattern
 
-Each agent container copies `configs/<name>/openclaw.json` to `~/.openclaw/openclaw.json` only if no config already exists (first start). Subsequent config changes must be made either by editing the live volume or by rebuilding. Worker configs point their browser to `chromium-<name>:9223`.
+Each agent mounts `configs/<name>/` at `/seed` and copies `/seed/openclaw.json` to `~/.openclaw/openclaw.json` only if no config already exists (first start). Persistent app config lives under `${DATA_ROOT}/openclaw-<name>/config` → `~/.config`. Subsequent OpenClaw config changes must be made either by editing the live volume or by rebuilding. Worker configs point their browser to `chromium-<name>:9223`.
 
 ### Orchestrator special access
 
 The orchestrator container has:
 - All worker `.openclaw` dirs mounted at `/mounted-agents/<name>/.openclaw` (read/write)
-- The repo root mounted at `/compose-files`
+- The compose repo mounted at `/compose-files` (host path via `COMPOSE_REPO_HOST_PATH`)
 - `/var/run/docker.sock` (read-only) for running `docker compose` commands
 
 ### Port scheme

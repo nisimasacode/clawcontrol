@@ -99,7 +99,7 @@
   "skills": {
     "entries": {
       "openai-whisper-api": {
-        "apiKey": "$OPENAI_API_KEY"
+        "apiKey": "${OPENAI_API_KEY}"
       }
     }
   },
@@ -116,7 +116,7 @@
       "provider": "openai",
       "providers": {
         "openai": {
-          "apiKey": "$OPENAI_API_KEY",
+          "apiKey": "${OPENAI_API_KEY}",
           "model": "tts-1",
           "voice": "onyx"
         }

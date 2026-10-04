@@ -179,7 +179,7 @@ services:
     environment:
       DATA_ROOT: ${DATA_ROOT:-}
     volumes:
-      - .:${COMPOSE_REPO_MOUNT_PATH:-/compose-files}
+      - ${COMPOSE_REPO_HOST_PATH:-.}:${COMPOSE_REPO_MOUNT_PATH:-/compose-files}
       - ${DATA_ROOT}:${DATA_ROOT}
     command:
       - "node"
@@ -212,6 +212,7 @@ services:
       HOME: /home/node
       TERM: xterm-256color
       TZ: ${TZ:-Europe/Berlin}
+      PATH: /home/node/.openclaw/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       OPENCLAW_GATEWAY_TOKEN: ${ORCHESTRATOR_GATEWAY_TOKEN:-}
       ORCHESTRATOR_GATEWAY_PORT: ${ORCHESTRATOR_GATEWAY_PORT:-18789}
       TELEGRAM_BOT_TOKEN: ${ORCHESTRATOR_TELEGRAM_BOT_TOKEN:-}
@@ -230,14 +231,15 @@ services:
       # Own config + workspace
       - ${DATA_ROOT}/openclaw-orchestrator/.openclaw:/home/node/.openclaw
       - ${DATA_ROOT}/openclaw-orchestrator/workspace:/home/node/.openclaw/workspace
-      # Seed config (copied on first start if no config exists)
-      - ./configs/orchestrator/openclaw.json:/seed/openclaw.json:ro
+      - ${DATA_ROOT}/openclaw-orchestrator/config:/home/node/.config
+      # Seed config dir (openclaw.json copied on first start if no config exists)
+      - ./configs/orchestrator:/seed:ro
       # ── Orchestrator-only mounts ──
       # Read/write access to every other agent's config
       - ${DATA_ROOT}/openclaw-agent1/.openclaw:/mounted-agents/agent1/.openclaw
       - ${DATA_ROOT}/openclaw-agent2/.openclaw:/mounted-agents/agent2/.openclaw
       # Access to the compose stack (so the orchestrator can edit it)
-      - .:${COMPOSE_REPO_MOUNT_PATH:-/compose-files}
+      - ${COMPOSE_REPO_HOST_PATH:-.}:${COMPOSE_REPO_MOUNT_PATH:-/compose-files}
       # Docker socket for running compose commands
       - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
@@ -287,6 +289,7 @@ services:
       HOME: /home/node
       TERM: xterm-256color
       TZ: ${TZ:-Europe/Berlin}
+      PATH: /home/node/.openclaw/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       OPENCLAW_GATEWAY_TOKEN: ${AGENT1_GATEWAY_TOKEN:-}
       OPENCLAW_GATEWAY_PORT: ${AGENT1_GATEWAY_PORT:-18791}
       TELEGRAM_BOT_TOKEN: ${AGENT1_TELEGRAM_BOT_TOKEN:-}
@@ -303,7 +306,8 @@ services:
     volumes:
       - ${DATA_ROOT}/openclaw-agent1/.openclaw:/home/node/.openclaw
       - ${DATA_ROOT}/openclaw-agent1/workspace:/home/node/.openclaw/workspace
-      - ./configs/agent1/openclaw.json:/seed/openclaw.json:ro
+      - ${DATA_ROOT}/openclaw-agent1/config:/home/node/.config
+      - ./configs/agent1:/seed:ro
     ports:
       - "${AGENT1_GATEWAY_PORT:-18791}:${AGENT1_GATEWAY_PORT:-18791}"
       - "${AGENT1_BRIDGE_PORT:-18792}:${AGENT1_BRIDGE_PORT:-18792}"
@@ -339,7 +343,15 @@ services:
       DISPLAY: ":1"
       START_DOCKER: "true"
       PIXELFLUX_WAYLAND: "true"          # Much better performance + lower CPU (recommended)
-      MAX_RESOLUTION: "1920x1080"
+      SELKIES_MANUAL_WIDTH: "1280"
+      SELKIES_MANUAL_HEIGHT: "720"
+      SELKIES_SCALING_DPI: "96"
+      SELKIES_FRAMERATE: "24"
+      SELKIES_AUDIO_ENABLED: "false"
+      SELKIES_MICROPHONE_ENABLED: "false"
+      SELKIES_GAMEPAD_ENABLED: "false"
+      SELKIES_CLIPBOARD_ENABLED: "false"
+      SELKIES_MODE: "webrtc"
     volumes:
       - ${DATA_ROOT}/chromium-agent1:/config:rw
     ports:
@@ -367,6 +379,7 @@ services:
       HOME: /home/node
       TERM: xterm-256color
       TZ: ${TZ:-Europe/Berlin}
+      PATH: /home/node/.openclaw/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       OPENCLAW_GATEWAY_TOKEN: ${AGENT2_GATEWAY_TOKEN:-}
       OPENCLAW_GATEWAY_PORT: ${AGENT2_GATEWAY_PORT:-18793}
       TELEGRAM_BOT_TOKEN: ${AGENT2_TELEGRAM_BOT_TOKEN:-}
@@ -383,7 +396,8 @@ services:
     volumes:
       - ${DATA_ROOT}/openclaw-agent2/.openclaw:/home/node/.openclaw
       - ${DATA_ROOT}/openclaw-agent2/workspace:/home/node/.openclaw/workspace
-      - ./configs/agent2/openclaw.json:/seed/openclaw.json:ro
+      - ${DATA_ROOT}/openclaw-agent2/config:/home/node/.config
+      - ./configs/agent2:/seed:ro
     ports:
       - "${AGENT2_GATEWAY_PORT:-18793}:${AGENT2_GATEWAY_PORT:-18793}"
       - "${AGENT2_BRIDGE_PORT:-18794}:${AGENT2_BRIDGE_PORT:-18794}"
@@ -419,7 +433,15 @@ services:
       DISPLAY: ":1"
       START_DOCKER: "true"
       PIXELFLUX_WAYLAND: "true"          # Much better performance + lower CPU (recommended)
-      MAX_RESOLUTION: "1920x1080"
+      SELKIES_MANUAL_WIDTH: "1280"
+      SELKIES_MANUAL_HEIGHT: "720"
+      SELKIES_SCALING_DPI: "96"
+      SELKIES_FRAMERATE: "24"
+      SELKIES_AUDIO_ENABLED: "false"
+      SELKIES_MICROPHONE_ENABLED: "false"
+      SELKIES_GAMEPAD_ENABLED: "false"
+      SELKIES_CLIPBOARD_ENABLED: "false"
+      SELKIES_MODE: "webrtc"
     volumes:
       - ${DATA_ROOT}/chromium-agent2:/config:rw
     ports:
@@ -431,8 +453,11 @@ services:
     restart: unless-stopped
     environment:
       ORCHESTRATOR_GATEWAY_PORT: ${ORCHESTRATOR_GATEWAY_PORT:-18789}
+      ORCHESTRATOR_BRIDGE_PORT: ${ORCHESTRATOR_BRIDGE_PORT:-18790}
       AGENT1_GATEWAY_PORT: ${AGENT1_GATEWAY_PORT:-18791}
+      AGENT1_BRIDGE_PORT: ${AGENT1_BRIDGE_PORT:-18792}
       AGENT2_GATEWAY_PORT: ${AGENT2_GATEWAY_PORT:-18793}
+      AGENT2_BRIDGE_PORT: ${AGENT2_BRIDGE_PORT:-18794}
     ports:
       - "${NGINX_HTTP_PORT:-80}:80"
       - "${NGINX_HTTPS_PORT:-443}:443"

@@ -68,14 +68,16 @@ Each schema gets:
 ## 3) Seeded config pattern
 
 For each agent container startup:
+- `configs/<agent>/` is mounted read-only at `/seed`
 - if `~/.openclaw/openclaw.json` does not exist, it is copied from `/seed/openclaw.json`
-- if `/seed/auth-profiles.json` exists and `~/.openclaw/agents/main/agent/auth-profiles.json` does not exist, it is copied on first start
 - if it already exists, it is left unchanged
 
 This means:
 - `configs/<agent>/openclaw.json` is the initial seed
-- `configs/<agent>/auth-profiles.json` is an optional OAuth seed
-- runtime config eventually lives in host-mounted volume under `${DATA_ROOT}`
+- runtime OpenClaw state lives under `${DATA_ROOT}/openclaw-<agent>/.openclaw`
+- durable app config (for example provider auth material under `~/.config`) lives under `${DATA_ROOT}/openclaw-<agent>/config`
+
+Optional Codex plugin wiring is documented as an example snippet in `templates/codex-plugin.example.json` (not enabled by default).
 
 ## 4) Port conventions
 
@@ -153,6 +155,7 @@ Then edit `.env` and set at minimum:
 - `POSTGRES_PASSWORD`
 - `PGRST_JWT_SECRET`
 - `DATA_ROOT`
+- `COMPOSE_REPO_HOST_PATH` (use `.` when running compose from this repo; set an absolute host path on remote mounts)
 - `DOCKER_GID` (the group ID owning `/var/run/docker.sock` on your host)
 - gateway tokens (`ORCHESTRATOR_GATEWAY_TOKEN`, `AGENT1_GATEWAY_TOKEN`, `AGENT2_GATEWAY_TOKEN`)
 - OB1 MCP access keys (`ORCHESTRATOR_OB1_MCP_ACCESS_KEY`, `AGENT1_OB1_MCP_ACCESS_KEY`, `AGENT2_OB1_MCP_ACCESS_KEY`)
@@ -234,6 +237,8 @@ Important variables from `.env.example`:
   - `OB1_EMBEDDING_MODEL`
 - Fleet/runtime
   - `DATA_ROOT`
+  - `COMPOSE_REPO_HOST_PATH`
+  - `COMPOSE_REPO_MOUNT_PATH`
   - `TZ`
   - `DOCKER_GID`
 - Model providers
@@ -287,18 +292,6 @@ Optional browser disable:
 node scripts/add-agent.mjs --name <agent-name> --browser false
 ```
 
-Optional auth profile seeding:
-
-```bash
-node scripts/add-agent.mjs --name <agent-name> --seed-auth-profiles
-```
-
-Optional custom auth profile source path:
-
-```bash
-node scripts/add-agent.mjs --name <agent-name> --seed-auth-profiles --auth-profiles-source <path-to-auth-profiles.json>
-```
-
 `add-agent.mjs` performs coordinated changes across repository state:
 - updates `docker-compose.yml`
   - adds `ob1-mcp-<name>` service pinned to the new schema
@@ -306,12 +299,11 @@ node scripts/add-agent.mjs --name <agent-name> --seed-auth-profiles --auth-profi
   - adds `chromium-<name>` service if browser enabled
   - adds orchestrator mount for new agent config
   - appends new schema to PostgREST schema list
-  - regenerates `openclaw-nginx` env wiring for all discovered gateway ports
+  - regenerates `openclaw-nginx` env wiring for gateway and bridge ports
 - renders `configs/<name>/openclaw.json` from template
-- optionally seeds `configs/<name>/auth-profiles.json` (default source: `./.openclaw/agents/main/agent/auth-profiles.json`)
 - updates `ob1/init.sql` with schema creation/grants
 - appends new env variables to `.env.example` and `.env` (if present), including `<AGENT>_OB1_MCP_ACCESS_KEY`
-- regenerates `nginx/nginx.conf.template` route/upstream blocks for all discovered OpenClaw services
+- regenerates `nginx/nginx.conf.template` route/upstream blocks for all discovered OpenClaw services (gateway + `sandbox-<name>` bridge routes)
 
 If OB1 is already running, create schema live:
 
@@ -354,6 +346,7 @@ To prevent root-owned files from blocking orchestrator edits in the compose repo
 - behavior: checks ownership for host mount sources used by `openclaw-*` services and runs `chown -R` only when a mismatch is detected
 
 Configurable variables:
+- `COMPOSE_REPO_HOST_PATH` (default: `.` — absolute host path to this repo when needed)
 - `COMPOSE_REPO_MOUNT_PATH` (default: `/compose-files`)
 - `DOCKER_GID` (required: must match `stat -c '%g' /var/run/docker.sock` on the host)
 
