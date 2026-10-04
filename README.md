@@ -67,6 +67,8 @@ Each schema gets:
 
 ## 3) Seeded config pattern
 
+Seed templates target **OpenClaw 2026.9.2** config shape (see `templates/openclaw.*.json`).
+
 For each agent container startup:
 - `configs/<agent>/` is mounted read-only at `/seed`
 - if `~/.openclaw/openclaw.json` does not exist, it is copied from `/seed/openclaw.json`
@@ -77,7 +79,16 @@ This means:
 - runtime OpenClaw state lives under `${DATA_ROOT}/openclaw-<agent>/.openclaw`
 - durable app config (for example provider auth material under `~/.config`) lives under `${DATA_ROOT}/openclaw-<agent>/config`
 
-Optional Codex plugin wiring is documented as an example snippet in `templates/codex-plugin.example.json` (not enabled by default).
+Notable 9.2 seed details:
+- top-level `memory.search` (not `agents.defaults.memorySearch`)
+- top-level `tts` with `speakerVoice` (not `messages.tts` / `voice`)
+- `tools.web.search.provider: searxng` plus `plugins.entries.searxng`
+- provider plugins enabled (`anthropic`, `openai`, `openrouter`, `codex`, `telegram`; `browser` on workers)
+- `gateway.trustedProxies` uses `${OPENCLAW_TRUSTED_PROXIES}` (default `172.16.0.0/12`) for nginx/docker proxy trust
+- `mcp.apps.sandboxOrigin` matches nginx `sandbox-<agent>.*` bridge routes — replace `example.com` with your real domain
+- model primary/fallbacks are left unset so you choose providers after first boot / auth login
+
+Codex plugin reference snippet: `templates/codex-plugin.example.json`.
 
 ## 4) Port conventions
 

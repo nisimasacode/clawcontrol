@@ -214,6 +214,7 @@ services:
       TZ: ${TZ:-Europe/Berlin}
       PATH: /home/node/.openclaw/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       OPENCLAW_GATEWAY_TOKEN: ${ORCHESTRATOR_GATEWAY_TOKEN:-}
+      OPENCLAW_TRUSTED_PROXIES: ${OPENCLAW_TRUSTED_PROXIES:-172.16.0.0/12}
       ORCHESTRATOR_GATEWAY_PORT: ${ORCHESTRATOR_GATEWAY_PORT:-18789}
       TELEGRAM_BOT_TOKEN: ${ORCHESTRATOR_TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_OWNER_ID: ${TELEGRAM_OWNER_ID:-}
@@ -292,6 +293,7 @@ services:
       PATH: /home/node/.openclaw/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       OPENCLAW_GATEWAY_TOKEN: ${AGENT1_GATEWAY_TOKEN:-}
       OPENCLAW_GATEWAY_PORT: ${AGENT1_GATEWAY_PORT:-18791}
+      OPENCLAW_TRUSTED_PROXIES: ${OPENCLAW_TRUSTED_PROXIES:-172.16.0.0/12}
       TELEGRAM_BOT_TOKEN: ${AGENT1_TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_OWNER_ID: ${TELEGRAM_OWNER_ID:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -382,6 +384,7 @@ services:
       PATH: /home/node/.openclaw/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       OPENCLAW_GATEWAY_TOKEN: ${AGENT2_GATEWAY_TOKEN:-}
       OPENCLAW_GATEWAY_PORT: ${AGENT2_GATEWAY_PORT:-18793}
+      OPENCLAW_TRUSTED_PROXIES: ${OPENCLAW_TRUSTED_PROXIES:-172.16.0.0/12}
       TELEGRAM_BOT_TOKEN: ${AGENT2_TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_OWNER_ID: ${TELEGRAM_OWNER_ID:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}

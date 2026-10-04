@@ -1,5 +1,5 @@
 {
-  "_comment": "Optional Codex plugin snippet. Merge under plugins.entries in an agent openclaw.json if you use the Codex harness. Not enabled by default.",
+  "_comment": "Codex plugin is already enabled in the OpenClaw 9.2 seed templates. Keep this snippet as a reference if you rebuild plugins.entries manually. Pair with agents.defaults.models.<openai-model>.agentRuntime.id = \"codex\" when selecting a Codex-backed model.",
   "codex": {
     "enabled": true,
     "config": {

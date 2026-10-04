@@ -2,11 +2,13 @@
   "gateway": {
     "mode": "local",
     "bind": "lan",
+    "trustedProxies": [
+      "${OPENCLAW_TRUSTED_PROXIES}"
+    ],
     "controlUi": {
       "allowedOrigins": [
         "*"
-      ],
-      "allowInsecureAuth": true
+      ]
     },
     "auth": {
       "mode": "token",
@@ -36,24 +38,11 @@
       }
     }
   },
+  "models": {
+    "providers": {}
+  },
   "agents": {
-    "defaults": {
-      "memorySearch": {
-        "sources": [
-          "memory",
-          "sessions"
-        ],
-        "experimental": {
-          "sessionMemory": true
-        },
-        "provider": "openai",
-        "remote": {
-          "baseUrl": "https://openrouter.ai/api/v1",
-          "apiKey": "${OPENROUTER_API_KEY}"
-        },
-        "model": "text-embedding-3-small"
-      }
-    }
+    "defaults": {}
   },
   "mcp": {
     "servers": {
@@ -65,6 +54,9 @@
         },
         "connectionTimeoutMs": 30000
       }
+    },
+    "apps": {
+      "sandboxOrigin": "https://sandbox-agent2.example.com"
     }
   },
   "channels": {
@@ -107,25 +99,78 @@
     "entries": {
       "telegram": {
         "enabled": true
-      }
-    }
-  },
-  "messages": {
-    "tts": {
-      "auto": "inbound",
-      "provider": "openai",
-      "providers": {
-        "openai": {
-          "apiKey": "${OPENAI_API_KEY}",
-          "model": "tts-1",
-          "voice": "onyx"
+      },
+      "browser": {
+        "enabled": true
+      },
+      "anthropic": {
+        "enabled": true
+      },
+      "openai": {
+        "enabled": true
+      },
+      "openrouter": {
+        "enabled": true
+      },
+      "codex": {
+        "enabled": true,
+        "config": {
+          "appServer": {
+            "clearEnv": [
+              "CODEX_API_KEY",
+              "OPENAI_API_KEY"
+            ]
+          }
+        }
+      },
+      "searxng": {
+        "config": {
+          "webSearch": {
+            "baseUrl": "http://searxng:8080"
+          }
         }
       }
     }
   },
+  "messages": {},
   "commands": {
     "ownerAllowFrom": [
       "telegram:${TELEGRAM_OWNER_ID}"
     ]
+  },
+  "memory": {
+    "search": {
+      "sources": [
+        "memory",
+        "sessions"
+      ],
+      "experimental": {
+        "sessionMemory": true
+      },
+      "provider": "openai",
+      "remote": {
+        "baseUrl": "https://openrouter.ai/api/v1",
+        "apiKey": "${OPENROUTER_API_KEY}"
+      },
+      "model": "text-embedding-3-small"
+    }
+  },
+  "tts": {
+    "auto": "inbound",
+    "provider": "openai",
+    "providers": {
+      "openai": {
+        "apiKey": "${OPENAI_API_KEY}",
+        "model": "tts-1",
+        "speakerVoice": "onyx"
+      }
+    }
+  },
+  "tools": {
+    "web": {
+      "search": {
+        "provider": "searxng"
+      }
+    }
   }
 }

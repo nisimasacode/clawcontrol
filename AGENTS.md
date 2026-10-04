@@ -90,4 +90,4 @@ Both scripts in `scripts/` are zero-dependency Node.js (18+) ES modules that ope
 - `.env.example` — all configurable variables with their defaults and comments
 - `ob1/init.sql` — full OB1 schema setup; `create_ob1_schema()` is the function to call when adding agents to a running DB
 - `scripts/add-agent.mjs` — single entrypoint for adding agents; read this before manually editing compose
-- `templates/openclaw.worker.json` — the canonical worker config template; `{{AGENT_NAME}}` is the only variable
+- `templates/openclaw.worker.json` — canonical worker seed for OpenClaw 2026.9.2; `{{AGENT_NAME}}` is substituted for CDP URL and sandbox origin

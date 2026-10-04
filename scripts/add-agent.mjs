@@ -201,6 +201,7 @@ ${browserEnabled ? `      - ${browserNetwork}\n` : ""}    depends_on:
       PATH: /home/node/.openclaw/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       OPENCLAW_GATEWAY_TOKEN: \${${envPrefix}_GATEWAY_TOKEN:-}
       OPENCLAW_GATEWAY_PORT: \${${envPrefix}_GATEWAY_PORT:-${nextGateway}}
+      OPENCLAW_TRUSTED_PROXIES: \${OPENCLAW_TRUSTED_PROXIES:-172.16.0.0/12}
       TELEGRAM_BOT_TOKEN: \${${envPrefix}_TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_OWNER_ID: \${TELEGRAM_OWNER_ID:-}
       OPENAI_API_KEY: \${OPENAI_API_KEY:-}
