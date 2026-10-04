@@ -11,8 +11,6 @@ map $host $openclaw_upstream {
   ~^sandbox-agent1\. http://openclaw-agent1:${AGENT1_BRIDGE_PORT};
   ~^agent2\. http://openclaw-agent2:${AGENT2_GATEWAY_PORT};
   ~^sandbox-agent2\. http://openclaw-agent2:${AGENT2_BRIDGE_PORT};
-  ~^chromium-agent1\. https://chromium-agent1:3001;
-  ~^chromium-agent2\. https://chromium-agent2:3001;
 }
 
 resolver 127.0.0.11 valid=30s ipv6=off;

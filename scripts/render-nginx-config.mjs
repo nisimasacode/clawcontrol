@@ -89,7 +89,7 @@ function bridgeDefaultForAgent(composeText, name) {
   return portDefaultForAgent(composeText, name, "bridge");
 }
 
-function buildNginxServiceBlock(composeText, openclawAgents, chromiumAgents, newline) {
+function buildNginxServiceBlock(composeText, openclawAgents, _chromiumAgents, newline) {
   const envLines = openclawAgents.flatMap((name) => {
     const gatewayVar = gatewayVarForAgent(name);
     const bridgeVar = bridgeVarForAgent(name);
@@ -101,7 +101,8 @@ function buildNginxServiceBlock(composeText, openclawAgents, chromiumAgents, new
     ];
   });
 
-  const networkLines = ["      - agent-net", ...chromiumAgents.map((name) => `      - ${name}-browser-net`)];
+  // Headless chromium sidecars have no public webUI; nginx only needs agent-net.
+  const networkLines = ["      - agent-net"];
 
   return [
     "  openclaw-nginx:",
@@ -150,7 +151,7 @@ function upsertNginxService(composeText, nginxBlock) {
   return composeText.slice(0, sectionIndex) + nginxBlock + composeText.slice(sectionIndex);
 }
 
-function renderNginxTemplate(openclawAgents, chromiumAgents) {
+function renderNginxTemplate(openclawAgents, _chromiumAgents) {
   if (openclawAgents.length === 0) {
     throw new Error("No openclaw agents discovered in compose file");
   }
@@ -159,7 +160,7 @@ function renderNginxTemplate(openclawAgents, chromiumAgents) {
   const defaultGatewayVar = gatewayVarForAgent(defaultAgent);
   const defaultGatewayRef = `\${${defaultGatewayVar}}`;
 
-  const openclawUpstreamMap = openclawAgents
+  const upstreamMap = openclawAgents
     .flatMap((name) => {
       const gatewayVar = gatewayVarForAgent(name);
       const bridgeVar = bridgeVarForAgent(name);
@@ -171,12 +172,6 @@ function renderNginxTemplate(openclawAgents, chromiumAgents) {
       ];
     })
     .join("\n");
-
-  const chromiumUpstreamMap = chromiumAgents
-    .map((name) => `  ~^chromium-${name}\\. https://chromium-${name}:3001;`)
-    .join("\n");
-
-  const upstreamMap = [openclawUpstreamMap, chromiumUpstreamMap].filter(Boolean).join("\n");
 
   return `map $http_upgrade $connection_upgrade {
   default upgrade;

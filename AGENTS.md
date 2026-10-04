@@ -70,7 +70,7 @@ The orchestrator container has:
 
 ### Port scheme
 
-Gateway ports use odd numbers (`18789` orchestrator, `+2` per agent). Bridge = gateway + 1. Chromium UI ports start at `3002`. `add-agent.mjs` auto-detects the next free ports by scanning the existing compose file.
+Gateway ports use odd numbers (`18789` orchestrator, `+2` per agent). Bridge = gateway + 1. Chromium sidecars are headless (internal CDP `:9223`; no default host UI port). `add-agent.mjs` auto-detects the next free gateway ports by scanning the existing compose file.
 
 ### Scripts
 

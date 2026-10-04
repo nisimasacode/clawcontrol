@@ -143,11 +143,7 @@ const highestGateway =
 const nextGateway = highestGateway + 2;
 const nextBridge = nextGateway + 1;
 
-// Chromium UI ports increment from 3002
-const highestChromiumUI = browserEnabled
-  ? findHighestDefault(/:-(\d+)\}:3001/g) || 3001
-  : 0;
-const nextChromiumUI = browserEnabled ? highestChromiumUI + 1 : null;
+// Headless chromium sidecars do not publish a host UI port by default.
 
 // ── Generate service blocks ─────────────────────────────────────────────────
 const ob1McpBlock = `
@@ -248,26 +244,8 @@ const chromiumBlock = browserEnabled
       - ${browserNetwork}
     environment:
       TZ: \${TZ:-Europe/Berlin}
-      PUID: 1000
-      PGID: 1000
-      CUSTOM_HTTPS_PORT: 3001
-      CHROME_CLI: "--remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 --remote-allow-origins=*"
-      DISPLAY: ":1"
-      START_DOCKER: "true"
-      PIXELFLUX_WAYLAND: "true"
-      SELKIES_MANUAL_WIDTH: "1280"
-      SELKIES_MANUAL_HEIGHT: "720"
-      SELKIES_SCALING_DPI: "96"
-      SELKIES_FRAMERATE: "24"
-      SELKIES_AUDIO_ENABLED: "false"
-      SELKIES_MICROPHONE_ENABLED: "false"
-      SELKIES_GAMEPAD_ENABLED: "false"
-      SELKIES_CLIPBOARD_ENABLED: "false"
-      SELKIES_MODE: "webrtc"
     volumes:
       - \${DATA_ROOT}/chromium-${name}:/config:rw
-    ports:
-      - "\${${envPrefix}_CHROMIUM_UI_PORT:-${nextChromiumUI}}:3001"
 `
   : "";
 
@@ -406,7 +384,7 @@ ${envPrefix}_TELEGRAM_BOT_TOKEN=
 ${envPrefix}_GATEWAY_PORT=${nextGateway}
 ${envPrefix}_BRIDGE_PORT=${nextBridge}
 ${envPrefix}_OB1_MCP_ACCESS_KEY=
-${browserEnabled ? `${envPrefix}_CHROMIUM_UI_PORT=${nextChromiumUI}\n` : ""}#OPENCLAW_${envPrefix}_IMAGE=ghcr.io/openclaw/openclaw:latest
+#OPENCLAW_${envPrefix}_IMAGE=ghcr.io/openclaw/openclaw:latest
 `;
 
 for (const path of [ENV_EXAMPLE, ENV_FILE]) {
@@ -423,7 +401,7 @@ for (const path of [ENV_EXAMPLE, ENV_FILE]) {
 console.log(`
 Agent "${name}" added successfully.
 
-  Ports:  gateway=${nextGateway}  bridge=${nextBridge}${browserEnabled ? `  chromium-ui=${nextChromiumUI}` : ""}
+  Ports:  gateway=${nextGateway}  bridge=${nextBridge}${browserEnabled ? "  chromium=internal CDP :9223" : ""}
   Schema: ${schema}
   Browser: ${browserEnabled ? "enabled" : "disabled"}
   Auth profile seed: ${shouldSeedAuthProfiles ? `enabled (${authProfilesSourcePath})` : "disabled"}

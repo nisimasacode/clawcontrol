@@ -12,13 +12,14 @@ x-openclaw-common: &openclaw-common
     - agent-net
 
 x-chromium-common: &chromium-common
+  # Lean headless Chromium + CDP proxy (no Selkies webUI).
+  # Interactive logins: temporarily publish 127.0.0.1:<port>:9223 and use tools/cdp-screencast/.
   build:
-    context: ./docker/chromium-cdp-proxy
-  image: local/chromium-cdp-proxy:latest
+    context: ./docker/chromium-headless
+  image: local/chromium-headless:latest
+  init: true
   restart: unless-stopped
   shm_size: 2gb
-  networks:
-    - agent-net
   logging:
     driver: json-file
     options:
@@ -338,26 +339,8 @@ services:
       - agent1-browser-net
     environment:
       TZ: ${TZ:-Europe/Berlin}
-      PUID: 1000
-      PGID: 1000
-      CUSTOM_HTTPS_PORT: 3001
-      CHROME_CLI: "--remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 --remote-allow-origins=*"
-      DISPLAY: ":1"
-      START_DOCKER: "true"
-      PIXELFLUX_WAYLAND: "true"          # Much better performance + lower CPU (recommended)
-      SELKIES_MANUAL_WIDTH: "1280"
-      SELKIES_MANUAL_HEIGHT: "720"
-      SELKIES_SCALING_DPI: "96"
-      SELKIES_FRAMERATE: "24"
-      SELKIES_AUDIO_ENABLED: "false"
-      SELKIES_MICROPHONE_ENABLED: "false"
-      SELKIES_GAMEPAD_ENABLED: "false"
-      SELKIES_CLIPBOARD_ENABLED: "false"
-      SELKIES_MODE: "webrtc"
     volumes:
       - ${DATA_ROOT}/chromium-agent1:/config:rw
-    ports:
-      - "${AGENT1_CHROMIUM_UI_PORT:-3002}:3001"
 
   # ═══════════════════════════════════════════════════════════════════════════
   #  AGENT 2 — Worker agent
@@ -429,26 +412,8 @@ services:
       - agent2-browser-net
     environment:
       TZ: ${TZ:-Europe/Berlin}
-      PUID: 1000
-      PGID: 1000
-      CUSTOM_HTTPS_PORT: 3001
-      CHROME_CLI: "--remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 --remote-allow-origins=*"
-      DISPLAY: ":1"
-      START_DOCKER: "true"
-      PIXELFLUX_WAYLAND: "true"          # Much better performance + lower CPU (recommended)
-      SELKIES_MANUAL_WIDTH: "1280"
-      SELKIES_MANUAL_HEIGHT: "720"
-      SELKIES_SCALING_DPI: "96"
-      SELKIES_FRAMERATE: "24"
-      SELKIES_AUDIO_ENABLED: "false"
-      SELKIES_MICROPHONE_ENABLED: "false"
-      SELKIES_GAMEPAD_ENABLED: "false"
-      SELKIES_CLIPBOARD_ENABLED: "false"
-      SELKIES_MODE: "webrtc"
     volumes:
       - ${DATA_ROOT}/chromium-agent2:/config:rw
-    ports:
-      - "${AGENT2_CHROMIUM_UI_PORT:-3003}:3001"
 
   openclaw-nginx:
     image: nginx:1.27-alpine
@@ -469,8 +434,6 @@ services:
       - ./nginx/certs:/etc/nginx/certs:ro
     networks:
       - agent-net
-      - agent1-browser-net
-      - agent2-browser-net
 
 networks:
   agent-net:

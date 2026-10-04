@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CDP Interactive Screencast</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 12px; background: #f5f5f5; }
+    .controls { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+    button { padding: 6px 12px; cursor: pointer; }
+    input[type="text"] { padding: 6px; width: 320px; }
+    #canvas { border: 1px solid #ccc; background: #fff; cursor: crosshair; display: block; max-width: 100%; }
+    #status { font-weight: bold; color: #c00; }
+    #status.connected { color: #080; }
+    .log { font-family: monospace; font-size: 11px; white-space: pre-wrap; max-height: 120px; overflow-y: auto; border: 1px solid #ddd; background: #fff; padding: 6px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h3>Remote Browser Screencast</h3>
+  <div class="controls">
+    <button id="btnConnect">Connect</button>
+    <button id="btnDisconnect" disabled>Disconnect</button>
+    <input id="navUrl" type="text" placeholder="https://..." />
+    <button id="btnGo">Navigate</button>
+    <button id="btnScreenshot">Screenshot</button>
+    <button id="btnAuto">Auto-refresh: OFF</button>
+    <span id="status">Disconnected</span>
+  </div>
+  <canvas id="canvas" width="1280" height="720" tabindex="0"></canvas>
+  <div class="log" id="log"></div>
+
+  <script>
+    const HTTP_URL = 'http://localhost:8000/cdp';
+    const WS_BASE = 'ws://localhost:9223';
+    let ws = null;
+    let canvas = document.getElementById('canvas');
+    let ctx = canvas.getContext('2d');
+    let status = document.getElementById('status');
+    let logEl = document.getElementById('log');
+    let frameW = 1280, frameH = 720;
+
+    function log(s) {
+      logEl.textContent += s + '\n';
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    async function connect() {
+      try {
+        const r = await fetch(`${HTTP_URL}/json/list`);
+        const targets = await r.json();
+        const page = targets.find(t => t.type === 'page');
+        if (!page) {
+          log('No page target found. Open a tab first via chrome://inspect.');
+          return;
+        }
+        const wsUrl = page.webSocketDebuggerUrl || `${WS_BASE}${page.id}`;
+        ws = new WebSocket(wsUrl);
+        ws.onopen = () => {
+          log('WebSocket open');
+          status.textContent = 'Connected';
+          status.className = 'connected';
+          document.getElementById('btnConnect').disabled = true;
+          document.getElementById('btnDisconnect').disabled = false;
+          send('Page.enable');
+          send('Page.bringToFront');
+          send('Page.startScreencast', { format: 'jpeg', quality: 80, maxWidth: 1280, maxHeight: 720, everyNthFrame: 1 });
+        };
+        ws.onmessage = ev => {
+          const msg = JSON.parse(ev.data);
+          if (msg.error) {
+            log('CDP error: ' + msg.error.message + ' (method ' + msg.method + ')');
+          }
+          if (msg.method === 'Page.screencastFrame') {
+            const p = msg.params;
+            log('Frame received: ' + p.data.length + ' bytes, sessionId=' + p.sessionId);
+            const img = new Image();
+            img.onload = () => {
+              frameW = img.naturalWidth;
+              frameH = img.naturalHeight;
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              send('Page.screencastFrameAck', { sessionId: p.sessionId });
+            };
+            img.onerror = () => log('Image decode failed');
+            img.src = 'data:image/jpeg;base64,' + p.data;
+          } else if (msg.method === 'Page.loadEventFired') {
+            log('Page loaded');
+          } else if (msg.method === 'Page.screencastVisibilityChanged') {
+            log('Screencast visibility changed: ' + msg.params.visible);
+          } else if (msg.method) {
+            log('Event: ' + msg.method);
+          } else if (msg.result && msg.result.data) {
+            log('Screenshot result id=' + msg.id);
+            const img = new Image();
+            img.onload = () => {
+              frameW = img.naturalWidth;
+              frameH = img.naturalHeight;
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            };
+            img.onerror = () => log('Screenshot decode failed');
+            img.src = 'data:image/jpeg;base64,' + msg.result.data;
+          } else if (msg.result) {
+            log('Result id=' + msg.id + ': ' + JSON.stringify(msg.result).slice(0, 200));
+          }
+        };
+        ws.onerror = e => log('WebSocket error');
+        ws.onclose = () => {
+          log('WebSocket closed');
+          status.textContent = 'Disconnected';
+          status.className = '';
+          document.getElementById('btnConnect').disabled = false;
+          document.getElementById('btnDisconnect').disabled = true;
+          ws = null;
+        };
+      } catch (e) {
+        log('Connect failed: ' + e.message);
+      }
+    }
+
+    function send(method, params = {}) {
+      if (!ws) return;
+      const id = Math.floor(Math.random() * 1000000);
+      ws.send(JSON.stringify({ id, method, params }));
+    }
+
+    function sendMouse(type, x, y, button = 'left', clickCount = 0) {
+      const rect = canvas.getBoundingClientRect();
+      const sx = frameW / rect.width;
+      const sy = frameH / rect.height;
+      send('Input.dispatchMouseEvent', {
+        type,
+        x: x * sx,
+        y: y * sy,
+        button,
+        clickCount,
+        modifiers: 0
+      });
+    }
+
+    canvas.addEventListener('mousedown', e => {
+      const rect = canvas.getBoundingClientRect();
+      sendMouse('mousePressed', e.clientX - rect.left, e.clientY - rect.top, 'left', 1);
+    });
+    canvas.addEventListener('mouseup', e => {
+      const rect = canvas.getBoundingClientRect();
+      sendMouse('mouseReleased', e.clientX - rect.left, e.clientY - rect.top, 'left', 1);
+    });
+    canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      sendMouse('mouseMoved', e.clientX - rect.left, e.clientY - rect.top, 'none', 0);
+    });
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const sx = frameW / rect.width;
+      const sy = frameH / rect.height;
+      send('Input.dispatchMouseEvent', {
+        type: 'mouseWheel',
+        x: (e.clientX - rect.left) * sx,
+        y: (e.clientY - rect.top) * sy,
+        deltaX: e.deltaX,
+        deltaY: e.deltaY,
+        modifiers: e.shiftKey ? 8 : 0
+      });
+    });
+
+    const keyMap = {
+      Enter: { key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 },
+      Tab: { key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 },
+      Backspace: { key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 },
+      Escape: { key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 },
+      ArrowUp: { key: 'ArrowUp', code: 'ArrowUp', windowsVirtualKeyCode: 38 },
+      ArrowDown: { key: 'ArrowDown', code: 'ArrowDown', windowsVirtualKeyCode: 40 },
+      ArrowLeft: { key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37 },
+      ArrowRight: { key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 },
+      Delete: { key: 'Delete', code: 'Delete', windowsVirtualKeyCode: 46 },
+    };
+
+    canvas.addEventListener('keydown', e => {
+      e.preventDefault();
+      if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        send('Input.insertText', { text: e.key });
+      } else {
+        const km = keyMap[e.key];
+        if (km) {
+          send('Input.dispatchKeyEvent', { type: 'keyDown', ...km });
+          send('Input.dispatchKeyEvent', { type: 'keyUp', ...km });
+        } else if (e.key.startsWith('F') && e.key.length <= 3) {
+          const code = parseInt(e.key.slice(1));
+          if (!isNaN(code)) {
+            const vk = 111 + code; // F1 = 112
+            send('Input.dispatchKeyEvent', { type: 'keyDown', key: e.key, code: e.key, windowsVirtualKeyCode: vk });
+            send('Input.dispatchKeyEvent', { type: 'keyUp', key: e.key, code: e.key, windowsVirtualKeyCode: vk });
+          }
+        }
+      }
+    });
+
+    canvas.addEventListener('click', () => canvas.focus());
+
+    document.getElementById('btnConnect').onclick = connect;
+    document.getElementById('btnDisconnect').onclick = () => { if (ws) ws.close(); };
+    document.getElementById('btnGo').onclick = () => {
+      const url = document.getElementById('navUrl').value;
+      if (url) send('Page.navigate', { url });
+    };
+    document.getElementById('btnScreenshot').onclick = () => {
+      send('Page.captureScreenshot', { format: 'jpeg', quality: 80, fromSurface: true });
+    };
+
+    let autoRefresh = false;
+    let autoInterval = null;
+    document.getElementById('btnAuto').onclick = () => {
+      autoRefresh = !autoRefresh;
+      const btn = document.getElementById('btnAuto');
+      btn.textContent = autoRefresh ? 'Auto-refresh: ON' : 'Auto-refresh: OFF';
+      if (autoRefresh) {
+        send('Page.captureScreenshot', { format: 'jpeg', quality: 80, fromSurface: true });
+        autoInterval = setInterval(() => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            send('Page.captureScreenshot', { format: 'jpeg', quality: 60, fromSurface: true });
+          }
+        }, 800);
+      } else {
+        clearInterval(autoInterval);
+      }
+    };
+  </script>
+</body>
+</html>

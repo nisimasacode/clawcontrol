@@ -21,7 +21,7 @@ At a high level, the stack includes:
 - `searxng`: internal web search service used by agents
 - `openclaw-orchestrator`: control-plane agent for fleet management
 - `openclaw-agentN`: worker agents
-- `chromium-agentN`: per-worker browser sidecar containers (for CDP browser automation)
+- `chromium-agentN`: per-worker **headless** Chromium sidecars (CDP on internal `:9223`; no Selkies webUI)
 
 Each worker gets:
 - its own OpenClaw service
@@ -95,7 +95,7 @@ Codex plugin reference snippet: `templates/codex-plugin.example.json`.
 Defaults follow deterministic patterns:
 - gateway ports are odd numbers: orchestrator starts at `18789`, each new worker increments by `+2`
 - bridge port = gateway port + 1
-- chromium UI ports start at `3002` and increment
+- chromium CDP is internal-only on container port `9223` (no default host publish)
 - OB1 REST defaults to `3100`
 - OB1 MCP services are internal-only by default and do not require host port publishing
 - OB1 PostgreSQL host exposure defaults to `5433`
@@ -121,11 +121,13 @@ Typical problems in ad-hoc setups:
 - automation breakage after restarts or host moves
 
 How `ClawControl` addresses them:
-- dedicated Chromium sidecar per worker (`chromium-agentN`) for strict isolation
+- dedicated headless Chromium sidecar per worker (`chromium-agentN`) for strict isolation
 - fixed internal CDP target per agent (`http://chromium-<name>:9223`)
-- deterministic port allocation conventions for gateway/bridge/chromium UI
+- lean `docker/chromium-headless` image (alpine Chromium + CDP proxy) instead of a full desktop/Selkies stack
+- deterministic port allocation conventions for gateway/bridge
 - browser/no-browser template split (`openclaw.worker.json` vs `openclaw.worker.nobrowser.json`) for explicit capability control
-- persistent host-mounted browser config and agent workspace paths under `${DATA_ROOT}`
+- persistent host-mounted browser profile and agent workspace paths under `${DATA_ROOT}`
+- optional CDP screencast tools under `tools/cdp-screencast/` for manual website logins
 
 ### Security improvements over typical multi-agent OpenClaw setups
 
@@ -198,6 +200,67 @@ DOCKER_GID=281
 ```
 
 This is required because `openclaw-orchestrator` mounts `/var/run/docker.sock` and needs the host socket's group ID in order to use `docker`, `docker exec`, and `docker compose` from inside the orchestrator container.
+
+## Interactive browser login (CDP screencast)
+
+Worker Chromium sidecars are **headless** and do not expose a Selkies web UI. Agents automate the browser over internal CDP (`http://chromium-<name>:9223`). When you need to log into a website manually (cookies/session in the agent profile), temporarily attach a local screencast client.
+
+Tools live in `tools/cdp-screencast/`:
+- `serve_cdp.py` — local HTTP server + CORS proxy to CDP
+- `cdp-screencast.html` — click/type screencast UI
+
+### Steps
+
+1. **Publish a unique localhost CDP port** on the target chromium service in `docker-compose.yml` (temporary):
+
+```yaml
+ports:
+  - "127.0.0.1:<port>:9223"
+```
+
+Example for agent1 using host port `19223`:
+
+```yaml
+chromium-agent1:
+  <<: *chromium-common
+  container_name: chromium-agent1
+  networks:
+    - agent1-browser-net
+  environment:
+    TZ: ${TZ:-Europe/Berlin}
+  volumes:
+    - ${DATA_ROOT}/chromium-agent1:/config:rw
+  ports:
+    - "127.0.0.1:19223:9223"
+```
+
+Then recreate that service:
+
+```bash
+docker compose up -d chromium-agent1
+```
+
+2. **Create an SSH tunnel** from your workstation to the Docker host (skip if you already run compose on the same machine):
+
+```bash
+ssh -L <port>:127.0.0.1:<port> root@<host>
+```
+
+3. **Start the local CDP helper**, pointed at that port:
+
+```bash
+cd tools/cdp-screencast
+python serve_cdp.py <port>
+```
+
+4. **Open** http://localhost:8000/cdp-screencast.html
+
+5. Click **Connect**, then use the canvas to navigate/log in. When finished, **Disconnect**, stop `serve_cdp.py`, remove the temporary `ports:` mapping, and recreate the chromium service.
+
+Notes:
+- Prefer `127.0.0.1:` host binds so CDP is not exposed on the LAN.
+- Use a different `<port>` per agent if you attach more than one browser at once.
+- The OpenClaw agent keeps using the internal URL `http://chromium-<name>:9223`; only your laptop talks to the published host port.
 
 ## 3) HTTPS certificates for nginx
 
